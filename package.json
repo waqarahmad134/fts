@@ -1,0 +1,17 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "start": "php artisan serve",
+        "css:dev": "sass --watch public/assets/sass/main.scss:public/assets/css/style.css",
+        "css:build": "sass public/assets/sass/main.scss:public/assets/css/style.css",
+        "css:minify": "sass public/assets/sass/main.scss:public/assets/css/style.css --style=compressed"
+    },
+    "devDependencies": {
+        "axios": "^1.6.4",
+        "laravel-vite-plugin": "^1.0",
+        "vite": "^5.0"
+    }
+}

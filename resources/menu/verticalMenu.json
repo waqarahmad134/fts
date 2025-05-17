@@ -1,0 +1,100 @@
+{
+  "menu": [
+    {
+      "url": "/",
+      "name": "Dashboards",
+      "icon": "menu-icon tf-icons bx bx-home-circle",
+      "slug": "dashboard"
+    },
+    {
+      "menuHeader": "Apps & Pages"
+    },
+    {
+      "icon": "menu-icon tf-icons bx bx-table",
+      "name": "Users",
+      "slug": "users",
+      "submenu": [
+        {
+          "url": "users",
+          "name": "All Users",
+          "slug": "all-users"
+        },
+        {
+          "url": "users/create",
+          "name": "Create New User",
+          "slug": "users-create"
+        }
+      ]
+    },
+    {
+      "icon": "menu-icon tf-icons bx bx-table",
+      "name": "Files",
+      "slug": "files",
+      "submenu": [
+        {
+          "url": "files",
+          "name": "All Files",
+          "slug": "all-files"
+        },
+        {
+          "url": "files/create",
+          "name": "Create New File",
+          "slug": "files-create"
+        }
+      ]
+    },
+    {
+      "url": "/",
+      "icon": "menu-icon tf-icons bx bx-table",
+      "name": "Files History",
+      "slug": "files-history"
+    },
+    {
+      "icon": "menu-icon tf-icons bx bx-table",
+      "name": "Roles",
+      "slug": "roles",
+      "submenu": [
+        {
+          "url": "roles",
+          "name": "All Roles",
+          "slug": "all-roles"
+        },
+        {
+          "url": "roles/create",
+          "name": "Create New Role",
+          "slug": "roles-create"
+        }
+      ]
+    },
+    {
+      "icon": "menu-icon tf-icons bx bx-table",
+      "name": "Wing",
+      "slug": "wings",
+      "submenu": [
+        {
+          "url": "wings",
+          "name": "All Wings",
+          "slug": "all-wings"
+        },
+        {
+          "url": "wings/create",
+          "name": "Create New Wing",
+          "slug": "wing-create"
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "icon": "menu-icon tf-icons bx bx-user",
+      "slug": "profile-settings",
+      "submenu": [
+        {
+          "url": "profile",
+          "name": "Profile",
+          "slug": "profile"
+        }
+      ]
+    }
+    
+  ]
+}

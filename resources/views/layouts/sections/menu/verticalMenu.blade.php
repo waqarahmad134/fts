@@ -1,15 +1,8 @@
-@php
-
-$menuData = [json_decode(file_get_contents(resource_path('menu/verticalMenu.json')))] ;
-
-@endphp
-
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
 
-  <!-- ! Hide app brand if navbar-full -->
   <div class="app-brand demo">
     <a href="{{url('/')}}" class="app-brand-link" style="margin:auto;">
-      <span class="app-brand-logo demo" >
+      <span class="app-brand-logo demo">
         @include('_partials.macros',["width"=>25,"withbg"=>'var(--bs-primary)'])
       </span>
     </a>
@@ -22,62 +15,112 @@ $menuData = [json_decode(file_get_contents(resource_path('menu/verticalMenu.json
   <div class="menu-inner-shadow"></div>
 
   <ul class="menu-inner py-1">
-    @foreach ($menuData[0]->menu as $menu)
 
-    {{-- adding active and open class if child is active --}}
-
-    {{-- menu headers --}}
-    @if (isset($menu->menuHeader))
-    <li class="menu-header small text-uppercase">
-      <span class="menu-header-text">{{ __($menu->menuHeader) }}</span>
+    {{-- Dashboards --}}
+    <li class="menu-item {{ request()->is('/') ? 'active' : '' }}">
+      <a href="{{ url('/') }}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-home-circle"></i>
+        <div>Dashboards</div>
+      </a>
     </li>
 
-    @else
+    {{-- Menu Header --}}
+    <li class="menu-header small text-uppercase">
+      <span class="menu-header-text">Apps & Pages</span>
+    </li>
+    
 
-    {{-- active menu method --}}
-    @php
-    $activeClass = null;
-    $currentRouteName = Route::currentRouteName();
-
-    if ($currentRouteName === $menu->slug) {
-    $activeClass = 'active';
-    }
-    elseif (isset($menu->submenu)) {
-    if (gettype($menu->slug) === 'array') {
-    foreach($menu->slug as $slug){
-    if (str_contains($currentRouteName,$slug) and strpos($currentRouteName,$slug) === 0) {
-    $activeClass = 'active open';
-    }
-    }
-    }
-    else{
-    if (str_contains($currentRouteName,$menu->slug) and strpos($currentRouteName,$menu->slug) === 0) {
-    $activeClass = 'active open';
-    }
-    }
-
-    }
-    @endphp
-
-    {{-- main menu --}}
-    <li class="menu-item {{$activeClass}}">
-      <a href="{{ isset($menu->url) ? url($menu->url) : 'javascript:void(0);' }}" class="{{ isset($menu->submenu) ? 'menu-link menu-toggle' : 'menu-link' }}" @if (isset($menu->target) and !empty($menu->target)) target="_blank" @endif>
-        @isset($menu->icon)
-        <i class="{{ $menu->icon }}"></i>
-        @endisset
-        <div>{{ isset($menu->name) ? __($menu->name) : '' }}</div>
-        @isset($menu->badge)
-          <div class="badge bg-{{ $menu->badge[0] }} rounded-pill ms-auto">{{ $menu->badge[1] }}</div>
-        @endisset
-      </a>
-
-      {{-- submenu --}}
-      @isset($menu->submenu)
-      @include('layouts.sections.menu.submenu',['menu' => $menu->submenu])
-      @endisset
+    {{-- Users Menu --}}
+    @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
+    <li class="menu-item {{ request()->is('users*') ? 'active open' : '' }}">
+        <a href="javascript:void(0);" class="menu-link menu-toggle">
+            <i class="menu-icon tf-icons bx bx-table"></i>
+            <div>Users</div>
+        </a>
+        <ul class="menu-sub">
+            <li class="menu-item {{ request()->is('users') ? 'active' : '' }}">
+                <a href="{{ url('users') }}" class="menu-link"><div>All Users</div></a>
+            </li>
+            <li class="menu-item {{ request()->is('users/create') ? 'active' : '' }}">
+                <a href="{{ url('users/create') }}" class="menu-link"><div>Create New User</div></a>
+            </li>
+        </ul>
     </li>
     @endif
-    @endforeach
-  </ul>
 
+
+    {{-- Files Menu --}}
+    <li class="menu-item {{ request()->is('files*') ? 'active open' : '' }}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon tf-icons bx bx-table"></i>
+        <div>Files</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {{ request()->is('files') ? 'active' : '' }}">
+          <a href="{{ url('files') }}" class="menu-link"><div>All Files</div></a>
+        </li>
+        <li class="menu-item {{ request()->is('files/create') ? 'active' : '' }}">
+          <a href="{{ url('files/create') }}" class="menu-link"><div>Create New File</div></a>
+        </li>
+      </ul>
+    </li>
+    
+
+    {{-- Files History --}}
+    <li class="menu-item {{ request()->is('files-history') ? 'active' : '' }}">
+      <a href="{{ url('/') }}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-table"></i>
+        <div>Files History</div>
+      </a>
+    </li>
+
+    {{-- Roles --}}
+    @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
+
+    <li class="menu-item {{ request()->is('roles*') ? 'active open' : '' }}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon tf-icons bx bx-table"></i>
+        <div>Roles</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {{ request()->is('roles') ? 'active' : '' }}">
+          <a href="{{ url('roles') }}" class="menu-link"><div>All Roles</div></a>
+        </li>
+        <li class="menu-item {{ request()->is('roles/create') ? 'active' : '' }}">
+          <a href="{{ url('roles/create') }}" class="menu-link"><div>Create New Role</div></a>
+        </li>
+      </ul>
+    </li>
+
+    {{-- Wings --}}
+    <li class="menu-item {{ request()->is('wings*') ? 'active open' : '' }}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon tf-icons bx bx-table"></i>
+        <div>Wing</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {{ request()->is('wings') ? 'active' : '' }}">
+          <a href="{{ url('wings') }}" class="menu-link"><div>All Wings</div></a>
+        </li>
+        <li class="menu-item {{ request()->is('wings/create') ? 'active' : '' }}">
+          <a href="{{ url('wings/create') }}" class="menu-link"><div>Create New Wing</div></a>
+        </li>
+      </ul>
+    </li>
+    @endif
+
+    {{-- Settings --}}
+    <li class="menu-item {{ request()->is('profile') ? 'active' : '' }}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon tf-icons bx bx-user"></i>
+        <div>Settings</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item">
+          <a href="{{ url('profile') }}" class="menu-link"><div>Profile</div></a>
+        </li>
+      </ul>
+    </li>
+
+  </ul>
 </aside>

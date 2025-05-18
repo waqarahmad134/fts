@@ -18,7 +18,6 @@ $navbarDetached = ($navbarDetached ?? '');
       <div class="navbar-brand app-brand demo d-none d-xl-flex py-0 me-4">
         <a href="{{url('/')}}" class="app-brand-link gap-2">
           <span class="app-brand-logo demo">@include('_partials.macros',["width"=>25,"withbg"=>'var(--bs-primary)'])</span>
-          <span class="app-brand-text demo menu-text fw-bold">{{config('variables.templateName')}}</span>
         </a>
       </div>
       @endif
@@ -35,7 +34,7 @@ $navbarDetached = ($navbarDetached ?? '');
       <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
         <!-- Search -->
         <div class="navbar-nav align-items-center">
-          <div class="nav-item d-flex align-items-center">
+          <div class="nav-item d-md-flex d-none align-items-center">
             <i class="bx bx-search fs-4 lh-0"></i>
             <input type="text" class="form-control border-0 shadow-none ps-1 ps-sm-2" placeholder="Search..." aria-label="Search...">
           </div>
@@ -51,7 +50,7 @@ $navbarDetached = ($navbarDetached ?? '');
           <li class="nav-item navbar-dropdown dropdown-user dropdown">
             <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
               <div class="avatar avatar-online">
-                <img src="{{ asset('assets/img/avatars/1.png') }}" alt class="w-px-40 h-auto rounded-circle">
+                <img src="{{ asset('public/assets/img/avatars/1.png') }}" alt class="w-px-40 h-auto rounded-circle">
               </div>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -60,7 +59,7 @@ $navbarDetached = ($navbarDetached ?? '');
                   <div class="d-flex">
                     <div class="flex-shrink-0 me-3">
                       <div class="avatar avatar-online">
-                        <img src="{{ asset('assets/img/avatars/1.png') }}" alt class="w-px-40 h-auto rounded-circle">
+                        <img src="{{ asset('public/assets/img/avatars/1.png') }}" alt class="w-px-40 h-auto rounded-circle">
                       </div>
                     </div>
                     <div class="flex-grow-1">

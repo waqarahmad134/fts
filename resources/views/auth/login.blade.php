@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', function () {
           <div class="app-brand justify-content-center">
             <a href="{{url('/')}}" class="app-brand-link gap-2">
               <span class="app-brand-logo demo">@include('_partials.macros',["width"=>25,"withbg"=>'var(--bs-primary)'])</span>
-              <span class="app-brand-text demo text-body fw-bold">{{config('variables.templateName')}}</span>
             </a>
           </div>
           <!-- /Logo -->

@@ -51,7 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/files/{id}', [FileController::class, 'update'])->name('files.update');
     Route::put('/file-statuses', [FileController::class, 'updateStatus'])->name('file-statuses.update');
     Route::delete('/files/{id}', [FileController::class, 'destroy'])->name('files.destroy');
-
+    Route::get('/history', [FileController::class, 'file_history'])->name('files.history');
 
     //File movement
     Route::get('/file-movements', [FileMovementController::class, 'index'])->name('file-movements.index');

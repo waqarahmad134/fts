@@ -11,7 +11,7 @@ class File extends Model
 
     protected $fillable = [
         'file_no', 'subject', 'puc_proposal', 'file_image',
-        'attachment', 'status', 'created_by'
+        'file_attachment', 'status', 'created_by'
     ];
 
     public function creator()

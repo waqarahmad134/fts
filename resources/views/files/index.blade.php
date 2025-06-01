@@ -33,9 +33,11 @@
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">File Records</h5>
+    @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
     <a href="{{ url('/files/create') }}" class="btn btn-primary">
       <i class="bx bx-plus me-1"></i> Add New File
     </a>
+    @endif
   </div>
   <div class="table-responsive text-nowrap">
     <table class="table">
@@ -61,10 +63,17 @@
           <td>{{ $file->creator->name ?? 'N/A' }}</td>
           
           <td>
-            <span onclick="openStatusModal({{ $file->id }})" class="cursor-pointer badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
-              {{ ucfirst($file->status) }}
-            </span>
+            @if (auth()->user()->role->name == 'HCJ' || auth()->user()->role->name == 'Admin')
+              <span onclick="openStatusModal({{ $file->id }})" class="cursor-pointer badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
+                {{ ucfirst($file->status) }}
+              </span>
+            @else
+              <span class="cursor-pointer badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
+                {{ ucfirst($file->status) }}
+              </span>
+            @endif
           </td>
+
           <td>
             @php
               $latestMovement = $file->movements->last();
@@ -78,19 +87,35 @@
             @endif
           </td>
           <td>
-            <button class="btn btn-primary" onclick="openSendToModal({{ $file->id }})">Send To</button>
+            @php
+                $sender = \App\Models\User::find($latestMovement->sender_id);
+            @endphp
+            @if ($file->status == 'closed')
+              <span class="text-muted">File Closed</span>
+              @else
+              @if($sender->role_id == auth()->user()->role->id)
+                <span class="text-muted">Already Sent</span>
+              @else
+                <button class="btn btn-primary" onclick="openSendToModal({{ $file->id }})">Send To</button>
+              @endif
+            @endif
           </td>
           <td>
             @if ($file->file_image)
-              <img width="100"  class="img-fluid border rounded" src="{{ asset('/public/' . $file->file_image) }}" alt="Img">
+              <img width="100" class="img-fluid border rounded" src="{{ asset('/public/' . $file->file_image) }}" alt="Img">
             @else
               <span class="text-muted">None</span>
             @endif
           </td>
           <td>
+            <a class="dropdown-item" onclick="openViewModal({{ $file }})">
+              <i class="bx bx-show-alt me-1"></i> View
+            </a>
+              @if (auth()->user()->role->name == 'HCJ' || auth()->user()->role->name == 'Admin')
               <a class="dropdown-item" href="{{ url('/files/' . $file->id . '/edit') }}">
                 <i class="bx bx-edit-alt me-1"></i> Edit
               </a>
+              
               <form action="{{ url('/files/' . $file->id) }}" method="POST">
                 @csrf
                 @method('DELETE')
@@ -98,6 +123,7 @@
                   <i class="bx bx-trash me-1"></i> Delete
                 </button>
               </form>
+              @endif
           </td>
         </tr>
         @empty
@@ -176,6 +202,21 @@
   </div>
 </div>
 
+<div class="modal fade" id="viewModal" tabindex="-1"  >
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">File Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="file-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <script>
 function openSendToModal(fileId) {
   $('#sendToModal').modal('show');
@@ -225,6 +266,46 @@ function openStatusModal(fileId) {
   $('#statusModal').modal('show');
   $('#statusModal #file_id_status').val(fileId);
 }
+
+function openViewModal(file) {
+  const BASE_URL = "{{ asset('public') }}/";
+
+  let html = `
+    <strong>File No:</strong> ${file.file_no}<br>
+    <strong>Subject:</strong> ${file.subject}<br>
+    <strong>PUC/Proposal:</strong> ${file.puc_proposal}<br>
+    <strong>Status:</strong> ${file.status}<br>
+    <strong>Created By:</strong> ${file.creator?.name ?? 'N/A'}<br><br>
+    
+    <strong>Image:</strong><br>
+      ${file.file_image ? `<img src="${BASE_URL}/${file.file_image}" alt="Image" class="img-fluid mb-3">` : 'No image uploaded'}<br>
+    
+    <strong>Attachment:</strong><br>
+    ${file.file_attachment ? `<a href="${BASE_URL}/${file.file_attachment}" target="_blank">Download Attachment</a>` : 'No attachment'}<br><br>
+    
+    <strong>File Movements:</strong><br>
+    <ul class="list-group">
+  `;
+
+  file.movements.forEach((move, index) => {
+    html += `
+      <li class="list-group-item">
+        <strong>Movement #${index + 1}</strong><br>
+        <strong>Sender ID:</strong> ${move.sender_id}<br>
+        <strong>Receiver:</strong> ${move.receiver?.name ?? 'N/A'} (${move.receiver?.role?.name ?? 'N/A'})<br>
+        <strong>Note:</strong> ${move.file_note ?? 'N/A'}<br>
+        <strong>Rejected:</strong> ${move.file_reject ? 'Yes' : 'No'}<br>
+        <strong>Receive Date:</strong> ${move.receive_date}
+      </li>
+    `;
+  });
+
+  html += `</ul>`;
+
+  document.getElementById('file-content').innerHTML = html;
+  $('#viewModal').modal('show');
+}
+
 
 document.addEventListener('DOMContentLoaded', function() {
     @if(Session::has('toast_success'))

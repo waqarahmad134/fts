@@ -22,7 +22,12 @@
       <div class="d-flex align-items-end row">
         <div class="col-sm-7">
           <div class="card-body">
-              <h5 class="card-title text-primary">Welcome {{auth()->user()->name}}! 🎉</h5>
+              @php
+                  $hour = now()->format('H'); // 24-hour format
+                  $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+              @endphp
+              <h5 class="card-title text-primary">{{ $greeting }} {{ auth()->user()->name }}! 🎉</h5>
+              <!-- <h5 class="card-title text-primary">Welcome {{auth()->user()->name}}! 🎉</h5> -->
               <p class="mb-4">You have created <span class="fw-medium">{{ $todayFilesCount }}</span> files today.</p>
               <a href="{{ route('files.index') }}" class="btn btn-sm btn-outline-primary">View Files</a>
             </div>

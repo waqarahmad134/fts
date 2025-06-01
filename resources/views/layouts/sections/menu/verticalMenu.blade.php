@@ -41,9 +41,11 @@
             <li class="menu-item {{ request()->is('users') ? 'active' : '' }}">
                 <a href="{{ url('users') }}" class="menu-link"><div>All Users</div></a>
             </li>
+            @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
             <li class="menu-item {{ request()->is('users/create') ? 'active' : '' }}">
                 <a href="{{ url('users/create') }}" class="menu-link"><div>Create New User</div></a>
             </li>
+            @endif
         </ul>
     </li>
     @endif
@@ -59,18 +61,20 @@
         <li class="menu-item {{ request()->is('files') ? 'active' : '' }}">
           <a href="{{ url('files') }}" class="menu-link"><div>All Files</div></a>
         </li>
+        @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
         <li class="menu-item {{ request()->is('files/create') ? 'active' : '' }}">
           <a href="{{ url('files/create') }}" class="menu-link"><div>Create New File</div></a>
         </li>
+        @endif
       </ul>
     </li>
     
 
     {{-- Files History --}}
-    <li class="menu-item {{ request()->is('files-history') ? 'active' : '' }}">
-      <a href="{{ url('/') }}" class="menu-link">
+    <li class="menu-item {{ request()->is('history') ? 'active' : '' }}">
+      <a href="{{ route('files.history') }}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-table"></i>
-        <div>Files History</div>
+        <div>Files History (Closed)</div>
       </a>
     </li>
 

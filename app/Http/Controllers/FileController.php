@@ -9,64 +9,119 @@ use Illuminate\Http\Request;
 class FileController extends Controller
 {
     public function index()
-{
-    $currentUser = auth()->user();
-    $currentRole = $currentUser->role->name;
+    {
+        $currentUser = auth()->user();
+        $currentRole = $currentUser->role->name;
 
-    $roleHierarchy = [
-        'Junior Clerk',
-        'Assistant Registrar',
-        'Deputy Registrar',
-        'Additional Registrar',
-        'DG',
-        'Registrar',
-        'HCJ'
-    ];
+        $roleHierarchy = [
+            'Junior Clerk',
+            'Assistant Registrar',
+            'Deputy Registrar',
+            'Additional Registrar',
+            'DG',
+            'Registrar',
+            'HCJ'
+        ];
 
-    $currentIndex = array_search($currentRole, $roleHierarchy);
+        $currentIndex = array_search($currentRole, $roleHierarchy);
 
-    // Determine accessible users for sending files
-    if (strtolower($currentRole) === 'admin') {
-        $users = User::whereHas('role', function ($query) {
-            $query->where('name', '!=', 'admin');
-        })->with('role')->get();
-    } else {
-        $allowedRoles = [];
+        // Determine accessible users for sending files
+        if (strtolower($currentRole) === 'admin') {
+            $users = User::whereHas('role', function ($query) {
+                $query->where('name', '!=', 'admin');
+            })->with('role')->get();
+        } else {
+            $allowedRoles = [];
 
-        if ($currentIndex !== false) {
-            if (isset($roleHierarchy[$currentIndex - 1])) {
-                $allowedRoles[] = $roleHierarchy[$currentIndex - 1];
+            if ($currentIndex !== false) {
+                if (isset($roleHierarchy[$currentIndex - 1])) {
+                    $allowedRoles[] = $roleHierarchy[$currentIndex - 1];
+                }
+                if (isset($roleHierarchy[$currentIndex + 1])) {
+                    $allowedRoles[] = $roleHierarchy[$currentIndex + 1];
+                }
             }
-            if (isset($roleHierarchy[$currentIndex + 1])) {
-                $allowedRoles[] = $roleHierarchy[$currentIndex + 1];
-            }
+
+            $users = User::whereHas('role', function ($query) use ($allowedRoles) {
+                $query->whereIn('name', $allowedRoles);
+            })->with('role')->get();
         }
 
-        $users = User::whereHas('role', function ($query) use ($allowedRoles) {
-            $query->whereIn('name', $allowedRoles);
-        })->with('role')->get();
+        // ✅ Fetch files based on user involvement
+        $files = File::with(['creator', 'movements.receiver.role'])
+            ->where(function ($query) use ($currentUser) {
+                $query->where('created_by', $currentUser->id) // created by user
+                    ->orWhereHas('movements', function ($q) use ($currentUser) {
+                        $q->where('receiver_id', $currentUser->id); // assigned to user
+                    });
+
+                // If admin, allow all files
+                if (strtolower($currentUser->role->name) === 'admin') {
+                    $query->orWhereRaw('1 = 1');
+                }
+            })
+            ->paginate(10);
+
+        return view('files.index', compact('files', 'users'));
     }
 
-    // ✅ Fetch files based on user involvement
-    $files = File::with(['creator', 'movements.receiver.role'])
-        ->where(function ($query) use ($currentUser) {
-            $query->where('created_by', $currentUser->id) // created by user
-                ->orWhereHas('movements', function ($q) use ($currentUser) {
-                    $q->where('receiver_id', $currentUser->id); // assigned to user
-                });
+    public function file_history()
+    {
+        $currentUser = auth()->user();
+        $currentRole = $currentUser->role->name;
 
-            // If admin, allow all files
-            if (strtolower($currentUser->role->name) === 'admin') {
-                $query->orWhereRaw('1 = 1');
+        $roleHierarchy = [
+            'Junior Clerk',
+            'Assistant Registrar',
+            'Deputy Registrar',
+            'Additional Registrar',
+            'DG',
+            'Registrar',
+            'HCJ'
+        ];
+
+        $currentIndex = array_search($currentRole, $roleHierarchy);
+
+        // Determine accessible users for sending files
+        if (strtolower($currentRole) === 'admin') {
+            $users = User::whereHas('role', function ($query) {
+                $query->where('name', '!=', 'admin');
+            })->with('role')->get();
+        } else {
+            $allowedRoles = [];
+
+            if ($currentIndex !== false) {
+                if (isset($roleHierarchy[$currentIndex - 1])) {
+                    $allowedRoles[] = $roleHierarchy[$currentIndex - 1];
+                }
+                if (isset($roleHierarchy[$currentIndex + 1])) {
+                    $allowedRoles[] = $roleHierarchy[$currentIndex + 1];
+                }
             }
-        })
-        ->paginate(10);
 
-    return view('files.index', compact('files', 'users'));
-}
+            $users = User::whereHas('role', function ($query) use ($allowedRoles) {
+                $query->whereIn('name', $allowedRoles);
+            })->with('role')->get();
+        }
 
+        // ✅ Fetch files based on user involvement
+        $files = File::with(['creator', 'movements.receiver.role'])
+            ->where('status', 'closed')
+            ->where(function ($query) use ($currentUser) {
+                $query->where('created_by', $currentUser->id) // created by user
+                    ->orWhereHas('movements', function ($q) use ($currentUser) {
+                        $q->where('receiver_id', $currentUser->id); // assigned to user
+                    });
 
-    
+                // If admin, allow all files
+                if (strtolower($currentUser->role->name) === 'admin') {
+                    $query->orWhereRaw('1 = 1');
+                }
+            })
+            ->paginate(10);
+
+        return view('files.history', compact('files', 'users'));
+    }
 
     public function create()
     {
@@ -75,23 +130,24 @@ class FileController extends Controller
 
     public function store(Request $request)
     {
+
         $request->validate([
             'file_no' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
-            'attachment' => 'nullable|file|mimes:pdf,doc,docx',
+            'file_attachment' => 'nullable|file|mimes:pdf,doc,docx',
             'file_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg',
         ]);
 
-        $data = $request->except(['attachment', 'img']);
+        $data = $request->except(['file_attachment', 'file_image']);
         $data['created_by'] = auth()->id(); // Automatically assign the creator
 
         // Save attachment if present
-        if ($request->hasFile('attachment')) {
-            $file = $request->file('attachment');
+        if ($request->hasFile('file_attachment')) {
+            $file = $request->file('file_attachment');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $file->move(public_path('uploads/attachments'), $fileName);
-            $data['attachment'] = 'uploads/attachments/' . $fileName;
+            $data['file_attachment'] = 'uploads/attachments/' . $fileName;
         }
 
         // Save image if present
@@ -102,6 +158,7 @@ class FileController extends Controller
             $data['file_image'] = 'uploads/images/' . $imageName;
         }
 
+        // dd($data);
         File::create($data);
 
         return redirect('/files')->with('toast_success', 'File created successfully');
@@ -120,22 +177,22 @@ class FileController extends Controller
             'file_no' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
-            'attachment' => 'nullable|file|mimes:pdf,doc,docx',
+            'file_attachment' => 'nullable|file|mimes:pdf,doc,docx',
             'file_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg',
             'status' => 'required|in:pending,closed,reopened'
         ]);
 
-        $data = $request->except(['attachment', 'file_image']);
+        $data = $request->except(['file_attachment', 'file_image']);
 
-        if ($request->hasFile('attachment')) {
-            if ($file->attachment && file_exists(public_path($file->attachment))) {
-                unlink(public_path($file->attachment));
+        if ($request->hasFile('file_attachment')) {
+            if ($file->file_attachment && file_exists(public_path($file->file_attachment))) {
+                unlink(public_path($file->file_attachment));
             }
             
-            $attachment = $request->file('attachment');
+            $attachment = $request->file('file_attachment');
             $fileName = time() . '_' . $attachment->getClientOriginalName();
             $attachment->move(public_path('uploads/attachments'), $fileName);
-            $data['attachment'] = 'uploads/attachments/' . $fileName;
+            $data['file_attachment'] = 'uploads/attachments/' . $fileName;
         }
 
         // Save image if present
@@ -170,8 +227,8 @@ class FileController extends Controller
             $file = File::findOrFail($id);
             
             // Delete associated files if they exist
-            if ($file->attachment && file_exists(public_path($file->attachment))) {
-                unlink(public_path($file->attachment));
+            if ($file->file_attachment && file_exists(public_path($file->file_attachment))) {
+                unlink(public_path($file->file_attachment));
             }
             if ($file->file_image && file_exists(public_path($file->file_image))) {
                 unlink(public_path($file->file_image));
@@ -182,6 +239,12 @@ class FileController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('toast_error', 'Error deleting file');
         }
+    }
+
+    public function show($id)
+    {
+        $file = File::with(['creator', 'movements.receiver.role'])->findOrFail($id);
+        return view('files.show', compact('file'));
     }
 }
 

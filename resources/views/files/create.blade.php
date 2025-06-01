@@ -37,9 +37,9 @@
           </div>
 
           <div class="row mb-3">
-            <label class="col-sm-2 col-form-label">Attachment (PDF/DOC)</label>
+            <label class="col-sm-2 col-form-label">Attachment (PDF/DOC/DOCX)</label>
             <div class="col-sm-10">
-              <input type="file" name="attachment" class="form-control" accept=".pdf,.doc,.docx">
+              <input type="file" name="file_attachment" class="form-control" accept=".pdf,.doc,.docx">
             </div>
           </div>
 

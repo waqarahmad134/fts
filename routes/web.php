@@ -25,6 +25,29 @@ Route::get('/clear-cache', function () {
     return "All caches have been cleared!";
 });
 
+
+Route::get('/delete-db', function () {
+    DB::statement('SET FOREIGN_KEY_CHECKS = 0');
+    $tables = DB::select('SHOW TABLES');
+    $dbName = 'Tables_in_' . DB::getDatabaseName();
+    foreach ($tables as $table) {
+        Schema::drop($table->$dbName);
+    }
+
+    DB::statement('SET FOREIGN_KEY_CHECKS = 1');
+    return 'All tables dropped successfully!';
+});
+
+Route::get('/migrations', function () {
+    Artisan::call('migrate', ['--force' => true]);
+    return 'Migrations executed successfully!';
+});
+
+Route::get('/seed', function () {
+    Artisan::call('db:seed', ['--force' => true]);
+    return 'Database seeded successfully!';
+});
+
 // Main Page Route
 
 // Authentication Routes
@@ -71,6 +94,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/roles/{id}/edit', [RoleController::class, 'edit'])->name('roles.edit');
     Route::put('/roles/{id}', [RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{id}', [RoleController::class, 'destroy'])->name('roles.destroy');
+
+    Route::get('/roles/{role}/permissions', [RoleController::class, 'getPermissions'])->name('roles.permissions');
+    Route::post('/roles/{role}/permissions', [RoleController::class, 'updatePermissions'])->name('roles.permissions.update');
 
     // Wings 
     Route::get('/wings', [WingController::class, 'index'])->name('wings.index');

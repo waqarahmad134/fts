@@ -87,18 +87,24 @@
             @endif
           </td>
           <td>
-            @php
-                $sender = \App\Models\User::find($latestMovement->sender_id);
-            @endphp
-            @if ($file->status == 'closed')
-              <span class="text-muted">File Closed</span>
-              @else
-              @if($sender->role_id == auth()->user()->role->id)
-                <span class="text-muted">Already Sent</span>
-              @else
-                <button class="btn btn-primary" onclick="openSendToModal({{ $file->id }})">Send To</button>
-              @endif
-            @endif
+                @php
+                    $sender = null;
+                    if ($latestMovement) {
+                        $sender = \App\Models\User::find($latestMovement->sender_id);
+                    }
+                @endphp
+            
+                @if ($file->status == 'closed')
+                    <span class="text-muted">File Closed</span>
+                @else
+                    @if (!$latestMovement)
+                        <button class="btn btn-primary" onclick="openSendToModal({{ $file->id }})">Send To</button>
+                    @elseif ($sender && $sender->role_id == auth()->user()->role->id)
+                        <span class="text-muted">Already Sent</span>
+                    @else
+                        <button class="btn btn-primary" onclick="openSendToModal({{ $file->id }})">Send To</button>
+                    @endif
+                @endif
           </td>
           <td>
             @if ($file->file_image)
@@ -108,7 +114,7 @@
             @endif
           </td>
           <td>
-            <a class="dropdown-item" onclick="openViewModal({{ $file }})">
+            <a class="dropdown-item cursor-pointer" onclick="openViewModal({{ $file }})">
               <i class="bx bx-show-alt me-1"></i> View
             </a>
               @if (auth()->user()->role->name == 'HCJ' || auth()->user()->role->name == 'Admin')

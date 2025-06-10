@@ -4,64 +4,118 @@ namespace App\Http\Controllers;
 
 use App\Models\File;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 
 class FileController extends Controller
 {
+    // public function index()
+    // {
+    //     $currentUser = auth()->user();
+    //     $currentRole = $currentUser->role->name;
+
+    //     $roleHierarchy = [
+    //         'Junior Clerk',
+    //         'Assistant Registrar',
+    //         'Deputy Registrar',
+    //         'Additional Registrar',
+    //         'DG',
+    //         'Registrar',
+    //         'HCJ'
+    //     ];
+
+    //     $currentIndex = array_search($currentRole, $roleHierarchy);
+
+    //     // Determine accessible users for sending files
+    //     if (strtolower($currentRole) === 'admin') {
+    //         $users = User::whereHas('role', function ($query) {
+    //             $query->where('name', '!=', 'admin');
+    //         })->with('role')->get();
+    //     } else {
+    //         $allowedRoles = [];
+
+    //         if ($currentIndex !== false) {
+    //             if (isset($roleHierarchy[$currentIndex - 1])) {
+    //                 $allowedRoles[] = $roleHierarchy[$currentIndex - 1];
+    //             }
+    //             if (isset($roleHierarchy[$currentIndex + 1])) {
+    //                 $allowedRoles[] = $roleHierarchy[$currentIndex + 1];
+    //             }
+    //         }
+
+    //         $users = User::whereHas('role', function ($query) use ($allowedRoles) {
+    //             $query->whereIn('name', $allowedRoles);
+    //         })->with('role')->get();
+    //     }
+
+    //     // ✅ Fetch files based on user involvement
+    //     $files = File::with(['creator', 'movements.receiver.role'])
+    //         ->where(function ($query) use ($currentUser) {
+    //             $query->where('created_by', $currentUser->id) // created by user
+    //                 ->orWhereHas('movements', function ($q) use ($currentUser) {
+    //                     $q->where('receiver_id', $currentUser->id); // assigned to user
+    //                 });
+
+    //             // If admin, allow all files
+    //             if (strtolower($currentUser->role->name) === 'admin') {
+    //                 $query->orWhereRaw('1 = 1');
+    //             }
+    //         })
+    //         ->paginate(10);
+
+    //     return view('files.index', compact('files', 'users'));
+    // }
+
     public function index()
     {
         $currentUser = auth()->user();
-        $currentRole = $currentUser->role->name;
-
-        $roleHierarchy = [
-            'Junior Clerk',
-            'Assistant Registrar',
-            'Deputy Registrar',
-            'Additional Registrar',
-            'DG',
-            'Registrar',
-            'HCJ'
-        ];
-
-        $currentIndex = array_search($currentRole, $roleHierarchy);
-
-        // Determine accessible users for sending files
-        if (strtolower($currentRole) === 'admin') {
-            $users = User::whereHas('role', function ($query) {
-                $query->where('name', '!=', 'admin');
-            })->with('role')->get();
+        $currentRole = $currentUser->role;      // eager‑loaded relationship
+        $currentLevel = $currentRole->level;
+    
+        /* -----------------------------------------------------------------
+         | 1. Build the list of “adjacent” roles                             |
+         |    (one step up and one step down in the hierarchy)               |
+         ------------------------------------------------------------------*/
+        if (strtolower($currentRole->name) === 'admin') {
+            // Admin sees everyone except other admins
+            $users = User::whereHas('role', fn ($q) => $q->where('name', '!=', 'admin'))
+                         ->with('role')
+                         ->get();
         } else {
-            $allowedRoles = [];
-
-            if ($currentIndex !== false) {
-                if (isset($roleHierarchy[$currentIndex - 1])) {
-                    $allowedRoles[] = $roleHierarchy[$currentIndex - 1];
-                }
-                if (isset($roleHierarchy[$currentIndex + 1])) {
-                    $allowedRoles[] = $roleHierarchy[$currentIndex + 1];
-                }
-            }
-
-            $users = User::whereHas('role', function ($query) use ($allowedRoles) {
-                $query->whereIn('name', $allowedRoles);
-            })->with('role')->get();
+            $prevRole = Role::where('level', '<', $currentLevel)
+                            ->orderByDesc('level')
+                            ->first();          // immediate lower role
+    
+            $nextRole = Role::where('level', '>', $currentLevel)
+                            ->orderBy('level')
+                            ->first();          // immediate higher role
+    
+            $allowedRoleIds = collect([$prevRole, $nextRole])
+                              ->filter()        // remove nulls
+                              ->pluck('id');
+    
+            $users = User::whereIn('role_id', $allowedRoleIds)->with('role')->get();
         }
-
-        // ✅ Fetch files based on user involvement
-        $files = File::with(['creator', 'movements.receiver.role'])
-            ->where(function ($query) use ($currentUser) {
-                $query->where('created_by', $currentUser->id) // created by user
-                    ->orWhereHas('movements', function ($q) use ($currentUser) {
-                        $q->where('receiver_id', $currentUser->id); // assigned to user
-                    });
-
-                // If admin, allow all files
-                if (strtolower($currentUser->role->name) === 'admin') {
-                    $query->orWhereRaw('1 = 1');
-                }
-            })
-            ->paginate(10);
-
+    
+        /* -----------------------------------------------------------------
+         | 2. Fetch files:                                                   |
+         |    • Created by current user                                      |
+         |    • OR assigned to current user                                  |
+         |    • Admin sees everything                                        |
+         ------------------------------------------------------------------*/
+        $filesQuery = File::with(['creator', 'movements.receiver.role'])
+            ->where(function ($q) use ($currentUser) {
+                $q->where('created_by', $currentUser->id)
+                  ->orWhereHas('movements', fn ($m) =>
+                        $m->where('receiver_id', $currentUser->id));
+            });
+    
+        if (strtolower($currentRole->name) === 'admin') {
+            $filesQuery = File::with(['creator', 'movements.receiver.role']); // reset: full list
+        }
+    
+        $files = $filesQuery->orderByDesc('created_at')->paginate(10);
+    
         return view('files.index', compact('files', 'users'));
     }
 

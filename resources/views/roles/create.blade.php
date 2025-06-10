@@ -1,6 +1,6 @@
 @extends('layouts/contentNavbarLayout')
 
-@section('title', 'Add New File')
+@section('title', 'Add New Role')
 
 @section('content')
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Roles /</span> Add New Role</h4>
@@ -19,6 +19,18 @@
             <label class="col-sm-2 col-form-label">Role Name</label>
             <div class="col-sm-10">
               <input type="text" name="name" class="form-control" placeholder="Enter Role Name" required>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Insert After</label>
+            <div class="col-sm-10">
+              <select name="insert_after" class="form-control">
+                <option value="">-- At the end (default) --</option>
+                @foreach($existingRoles as $role)
+                  <option value="{{ $role->id }}">{{ $role->name }}</option>
+                @endforeach
+              </select>
             </div>
           </div>
 

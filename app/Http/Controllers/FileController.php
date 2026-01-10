@@ -305,38 +305,48 @@ class FileController extends Controller
     /**
      * Generate QR code for a file
      */
-    public function generateQrCode($id)
+    public function generateQrCode($id, Request $request)
     {
         try {
             $file = File::findOrFail($id);
             $scanUrl = url("/file-movements/scan/{$file->id}");
+            $format = $request->get('format', 'svg'); // Default to SVG
+            $download = $request->has('download') && $request->get('download') == '1'; // Default to inline display
             
-            // Try PNG first (requires GD extension - which is installed)
-            // PNG is more compatible with img tags across all browsers
-            try {
-                $qrCode = QrCode::format('png')
-                    ->size(300)
-                    ->margin(2)
-                    ->errorCorrection('H')
-                    ->generate($scanUrl);
-                
-                return response($qrCode, 200)
-                    ->header('Content-Type', 'image/png')
-                    ->header('Cache-Control', 'public, max-age=3600')
-                    ->header('Content-Disposition', 'inline; filename="qr-code-' . $file->id . '.png"');
-            } catch (\Exception $pngException) {
-                // If PNG fails, fallback to SVG (doesn't require extensions)
-                \Log::warning('PNG QR Code generation failed, falling back to SVG: ' . $pngException->getMessage());
-                
-                $qrCode = QrCode::size(300)
-                    ->margin(2)
-                    ->errorCorrection('H')
-                    ->generate($scanUrl);
-                
-                return response($qrCode, 200)
-                    ->header('Content-Type', 'image/svg+xml; charset=utf-8')
-                    ->header('Cache-Control', 'public, max-age=3600')
-                    ->header('Content-Disposition', 'inline; filename="qr-code-' . $file->id . '.svg"');
+            // Size for download formats (higher quality)
+            $size = $download ? 500 : 300;
+            
+            // Use file_no for filename, fallback to id
+            $fileIdentifier = !empty($file->file_no) ? $file->file_no : $file->id;
+            
+            switch (strtolower($format)) {
+                case 'png':
+                    // PNG requires imagick extension which isn't available
+                    // Fall through to SVG - user will get SVG format
+                    \Log::info('PNG format requested but imagick not available, using SVG instead');
+                    // Fall through to SVG
+                    
+                case 'jpg':
+                case 'jpeg':
+                    // JPG also requires PNG first (which needs imagick)
+                    // Fall through to SVG - user will get SVG format  
+                    \Log::info('JPG format requested but imagick not available, using SVG instead');
+                    // Fall through to SVG
+                    
+                case 'svg':
+                default:
+                    $qrCode = QrCode::size($size)
+                        ->margin(2)
+                        ->errorCorrection('H')
+                        ->generate($scanUrl);
+                    
+                    $fileName = 'qr-code-file-' . $fileIdentifier . '.svg';
+                    $disposition = $download ? 'attachment' : 'inline';
+                    
+                    return response($qrCode, 200)
+                        ->header('Content-Type', 'image/svg+xml; charset=utf-8')
+                        ->header('Cache-Control', 'public, max-age=3600')
+                        ->header('Content-Disposition', $disposition . '; filename="' . $fileName . '"');
             }
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             abort(404, 'File not found');

@@ -240,7 +240,26 @@
         <div id="qr-code-container" class="d-flex justify-content-center align-items-center mb-3">
           <img id="qr-code-image" src="" alt="QR Code" class="img-fluid" style="max-width: 300px;">
         </div>
-        <p class="text-muted small">Share this QR code with others to transfer the file</p>
+        <p class="text-muted small mb-3">Share this QR code with others to transfer the file</p>
+        
+        <!-- Download Section -->
+        <div class="border-top pt-3 mt-3">
+          <p class="mb-2 fw-semibold">Download QR Code</p>
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('svg')">
+              <i class="bx bx-download me-1"></i> Download SVG
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('png')">
+              <i class="bx bx-download me-1"></i> Download PNG
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('jpg')">
+              <i class="bx bx-download me-1"></i> Download JPG
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -359,9 +378,12 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
     };
 
     window.showQrCodeModal = function(fileId) {
-      // Add cache-busting parameter to ensure fresh QR code
+      // Store fileId globally for download function
+      window.currentQrFileId = fileId;
+      
+      // Add cache-busting parameter to ensure fresh QR code (use SVG for display)
       const timestamp = new Date().getTime();
-      const qrCodeUrl = "{{ url('/files') }}/" + fileId + "/qr-code?t=" + timestamp;
+      const qrCodeUrl = "{{ url('/files') }}/" + fileId + "/qr-code?format=svg&t=" + timestamp;
       $('#qr-code-image').attr('src', qrCodeUrl);
       $('#qrCodeModal').modal('show');
       
@@ -370,6 +392,93 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
         $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5RUiBDb2RlIExvYWRpbmcuLi48L3RleHQ+PC9zdmc+');
         alert('Failed to load QR code. Please try again.');
       });
+    };
+    
+    // Download QR Code in specified format
+    window.downloadQrCode = function(format) {
+      if (!window.currentQrFileId) {
+        alert('File ID not found. Please try again.');
+        return;
+      }
+      
+      const qrImage = document.getElementById('qr-code-image');
+      if (!qrImage || !qrImage.src) {
+        alert('QR code image not loaded. Please wait and try again.');
+        return;
+      }
+      
+      // For SVG format, download directly
+      if (format === 'svg') {
+        const downloadUrl = "{{ url('/files') }}/" + window.currentQrFileId + "/qr-code?format=svg&download=1";
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = 'qr-code-file-' + window.currentQrFileId + '.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+      
+      // For PNG and JPG, convert SVG to image using canvas
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = function() {
+        try {
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = 500; // High quality for download
+          canvas.height = 500;
+          const ctx = canvas.getContext('2d');
+          
+          // Fill white background
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Convert to requested format
+          let mimeType = 'image/png';
+          let fileExtension = 'png';
+          
+          if (format === 'jpg' || format === 'jpeg') {
+            mimeType = 'image/jpeg';
+            fileExtension = 'jpg';
+          }
+          
+          // Convert canvas to blob and download
+          canvas.toBlob(function(blob) {
+            if (!blob) {
+              alert('Failed to convert QR code. Please try downloading as SVG instead.');
+              return;
+            }
+            
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'qr-code-file-' + window.currentQrFileId + '.' + fileExtension;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            setTimeout(function() {
+              URL.revokeObjectURL(url);
+            }, 100);
+          }, mimeType, 0.95);
+        } catch (error) {
+          console.error('Error converting QR code:', error);
+          alert('Failed to convert QR code to ' + format.toUpperCase() + '. Please try downloading as SVG instead.');
+        }
+      };
+      
+      img.onerror = function() {
+        alert('Failed to load QR code image. Please try again.');
+      };
+      
+      // Load the image (use the current src from the modal)
+      img.src = qrImage.src;
     };
     
     // Modal close handler will be attached in DOMContentLoaded below

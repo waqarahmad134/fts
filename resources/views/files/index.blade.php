@@ -552,13 +552,28 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
     await startPromise;
     isScanning = true;
     const selectedCamera = availableCameras.find(c => c.id === useCameraId);
-    const cameraLabel = selectedCamera 
-      ? selectedCamera.label 
+    const cameraLabel = selectedCamera
+      ? selectedCamera.label
       : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
-      updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.');
+    updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.');
   } catch (err) {
     console.error('Failed to start scanner:', err);
-    updateScanningStatus('<span class="text-danger">Failed to start camera. Please check permissions and try again.</span>');
+    let errorMsg = 'Failed to start camera. ';
+    
+    const errMsg = err && err.message ? err.message : '';
+    const errName = err && err.name ? err.name : '';
+    
+    if (errName === 'NotAllowedError' || errMsg.includes('Permission denied')) {
+      errorMsg += 'Camera permission denied. Please allow camera access in your browser settings and try again.';
+    } else if (errName === 'NotFoundError' || errMsg.includes('Requested device not found')) {
+      errorMsg += 'No camera found. Please check if a camera is connected and try again.';
+    } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source')) {
+      errorMsg += 'Camera is being used by another application. Please close other apps using the camera and try again.';
+    } else {
+      errorMsg += 'Please check camera permissions and try again.';
+    }
+    
+    updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
     isScanning = false;
   }
 }
@@ -602,55 +617,46 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const imageUrl = event.target.result;
-        
-        // Use Html5Qrcode to scan from image file
-        if (typeof Html5Qrcode === 'undefined') {
-          updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
-          return;
-        }
-        
-        // Stop any active camera scanning
-        if (isScanning && html5QrCode) {
-          stopQrScanner();
-        }
-        
-        // Create a temporary Html5Qrcode instance for file scanning
-        const fileBasedInstance = new Html5Qrcode("qr-reader");
-        
-        updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
-        
-        fileBasedInstance.scanFile(imageUrl, true)
-          .then(decodedText => {
-            // Successfully decoded
-            updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
-            fileBasedInstance.clear();
-            handleScannedQrCode(decodedText);
-          })
-          .catch(err => {
-            console.error('Error scanning file:', err);
-            let errorMsg = 'Failed to read QR code from image. ';
-            if (err.message && err.message.includes('No QR code')) {
-              errorMsg += 'No QR code found in the image. Please ensure the image contains a valid QR code.';
-            } else {
-              errorMsg += 'Please try again with a clearer image.';
-            }
-            updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
-            fileBasedInstance.clear();
-            
-            // Clear the input so user can try again
-            uploadInput.value = '';
-          });
-      };
+      // Use Html5Qrcode to scan from image file
+      if (typeof Html5Qrcode === 'undefined') {
+        updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
+        return;
+      }
       
-      reader.onerror = function() {
-        updateScanningStatus('<span class="text-danger">Failed to read the image file. Please try again.</span>');
-        uploadInput.value = '';
-      };
+      // Stop any active camera scanning
+      if (isScanning && html5QrCode) {
+        stopQrScanner();
+      }
       
-      reader.readAsDataURL(file);
+      // Create a temporary Html5Qrcode instance for file scanning
+      const fileBasedInstance = new Html5Qrcode("qr-reader");
+      
+      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
+      
+      // Pass the File object directly (not data URL)
+      fileBasedInstance.scanFile(file, true)
+        .then(decodedText => {
+          // Successfully decoded
+          updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
+          fileBasedInstance.clear();
+          handleScannedQrCode(decodedText);
+          // Clear the input so user can upload again
+          uploadInput.value = '';
+        })
+        .catch(err => {
+          console.error('Error scanning file:', err);
+          let errorMsg = 'Failed to read QR code from image. ';
+          if (err && err.message && err.message.includes('No QR code')) {
+            errorMsg += 'No QR code found in the image. Please ensure the image contains a valid QR code.';
+          } else {
+            errorMsg += 'Please try again with a clearer image.';
+          }
+          updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
+          fileBasedInstance.clear();
+          
+          // Clear the input so user can try again
+          uploadInput.value = '';
+        });
     });
   }
 });
@@ -737,25 +743,42 @@ window.handleScannedQrCode = function(decodedText) {
         'Accept': 'application/json'
       }
     })
-    .then(response => response.json())
-    .then(data => {
-      const message = data.message || 'File received successfully!';
-      if (statusEl) {
-        statusEl.innerHTML = '<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + ' Redirecting...</span>';
-        statusEl.style.display = 'block';
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(errData => {
+          throw new Error(errData.error || errData.message || 'Server error');
+        }).catch(() => {
+          throw new Error('HTTP error ' + response.status);
+        });
       }
-      setTimeout(() => {
-        const modalEl = document.getElementById('qrScannerModal');
-        if (modalEl) {
-          const modal = bootstrap.Modal.getInstance(modalEl);
-          if (modal) modal.hide();
+      return response.json();
+    })
+    .then(data => {
+      console.log('QR Scan response:', data);
+      
+      if (data.success || data.message) {
+        const message = data.message || 'File received successfully!';
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + ' Redirecting...</span>';
+          statusEl.style.display = 'block';
         }
-        window.location.reload();
-      }, 1500);
+        setTimeout(() => {
+          const modalEl = document.getElementById('qrScannerModal');
+          if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+          }
+          window.location.reload();
+        }, 1500);
+      } else if (data.error) {
+        throw new Error(data.error);
+      } else {
+        throw new Error('Unknown response format');
+      }
     })
     .catch(error => {
-      console.error('Error:', error);
-      const errorMsg = 'Failed to receive file. Please try again.';
+      console.error('QR Scan error:', error);
+      const errorMsg = error.message || 'Failed to receive file. Please try again.';
       if (statusEl) {
         statusEl.innerHTML = '<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>';
         statusEl.style.display = 'block';

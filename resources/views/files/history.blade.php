@@ -80,11 +80,8 @@
             @endif
           </td>
           <td>
-            @if ($file->status == 'closed')
-              <span class="text-muted">File Closed</span>
-              @else
-              <button class="btn btn-primary" onclick="openSendToModal({{ $file->id }})">Send To</button>
-            @endif
+            {{-- History page - read only, no actions allowed --}}
+            <span class="text-muted">View Only (History)</span>
           </td>
           <td>
             @if ($file->file_image)
@@ -203,6 +200,7 @@
 </div>
 
 
+
 <script>
 function openSendToModal(fileId) {
   $('#sendToModal').modal('show');
@@ -252,6 +250,8 @@ function openStatusModal(fileId) {
   $('#statusModal').modal('show');
   $('#statusModal #file_id_status').val(fileId);
 }
+
+// History page - no QR code actions (read-only)
 
 function openViewModal(file) {
   const BASE_URL = "{{ asset('public') }}/";

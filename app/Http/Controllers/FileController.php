@@ -6,6 +6,7 @@ use App\Models\File;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Http\Request;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class FileController extends Controller
 {
@@ -299,6 +300,63 @@ class FileController extends Controller
     {
         $file = File::with(['creator', 'movements.receiver.role'])->findOrFail($id);
         return view('files.show', compact('file'));
+    }
+
+    /**
+     * Generate QR code for a file
+     */
+    public function generateQrCode($id)
+    {
+        try {
+            $file = File::findOrFail($id);
+            $scanUrl = url("/file-movements/scan/{$file->id}");
+            
+            // Try PNG first (requires GD extension - which is installed)
+            // PNG is more compatible with img tags across all browsers
+            try {
+                $qrCode = QrCode::format('png')
+                    ->size(300)
+                    ->margin(2)
+                    ->errorCorrection('H')
+                    ->generate($scanUrl);
+                
+                return response($qrCode, 200)
+                    ->header('Content-Type', 'image/png')
+                    ->header('Cache-Control', 'public, max-age=3600')
+                    ->header('Content-Disposition', 'inline; filename="qr-code-' . $file->id . '.png"');
+            } catch (\Exception $pngException) {
+                // If PNG fails, fallback to SVG (doesn't require extensions)
+                \Log::warning('PNG QR Code generation failed, falling back to SVG: ' . $pngException->getMessage());
+                
+                $qrCode = QrCode::size(300)
+                    ->margin(2)
+                    ->errorCorrection('H')
+                    ->generate($scanUrl);
+                
+                return response($qrCode, 200)
+                    ->header('Content-Type', 'image/svg+xml; charset=utf-8')
+                    ->header('Cache-Control', 'public, max-age=3600')
+                    ->header('Content-Disposition', 'inline; filename="qr-code-' . $file->id . '.svg"');
+            }
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            abort(404, 'File not found');
+        } catch (\Exception $e) {
+            \Log::error('QR Code generation failed for file ID ' . $id . ': ' . $e->getMessage());
+            \Log::error('QR Code generation stack trace: ' . $e->getTraceAsString());
+            
+            // Return a simple error SVG instead of plain text
+            $errorSvg = '<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="300" fill="#f8f9fa"/><text x="50%" y="50%" font-family="Arial" font-size="16" fill="#dc3545" text-anchor="middle" dy=".3em">Error: Failed to generate QR code</text></svg>';
+            return response($errorSvg, 500)
+                ->header('Content-Type', 'image/svg+xml; charset=utf-8');
+        }
+    }
+
+    /**
+     * Get QR code URL for a file (helper method)
+     */
+    public function getQrCodeUrl($fileId)
+    {
+        return url("/files/{$fileId}/qr-code");
     }
 }
 

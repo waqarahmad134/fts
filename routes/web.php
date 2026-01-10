@@ -84,6 +84,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/file-movements/{id}/edit', [FileMovementController::class, 'edit'])->name('file-movements.edit');
     Route::put('/file-movements/{id}', [FileMovementController::class, 'update'])->name('file-movements.update');
     Route::delete('/file-movements/{id}', [FileMovementController::class, 'destroy'])->name('file-movements.destroy');
+    Route::get('/file-movements/scanner', [FileMovementController::class, 'scanner'])->name('file-movements.scanner');
+    Route::get('/file-movements/scan/{fileId}', [FileMovementController::class, 'scan'])->name('file-movements.scan');
+    
+    //QR Code Generation
+    Route::get('/files/{id}/qr-code', [FileController::class, 'generateQrCode'])->name('files.qr-code');
 
 
     //Role

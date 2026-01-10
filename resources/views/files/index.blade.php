@@ -35,11 +35,16 @@
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">File Records</h5>
-    @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
-    <a href="{{ url('/files/create') }}" class="btn btn-primary">
-      <i class="bx bx-plus me-1"></i> Add New File
-    </a>
-    @endif
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-success" onclick="openQrScanner()" title="Scan QR Code to Receive File">
+        <i class="bx bx-scan me-1"></i> Scan QR Code
+      </button>
+      @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
+      <a href="{{ url('/files/create') }}" class="btn btn-primary">
+        <i class="bx bx-plus me-1"></i> Add New File
+      </a>
+      @endif
+    </div>
   </div>
   <div class="table-responsive text-nowrap">
     <table class="table">
@@ -99,17 +104,10 @@
                 @if ($file->status == 'closed')
                     <span class="text-muted">File Closed</span>
                 @else
-                    @if ($file->created_by == auth()->id() || (auth()->user()->role->name == 'Admin' || auth()->user()->role->name == 'HCJ'))
-                        {{-- Show QR Code instead of Send button for file creator --}}
-                        <button class="btn btn-info btn-sm" onclick="showQrCodeModal({{ $file->id }})" title="Show QR Code">
-                            <i class="bx bx-qr-scan me-1"></i> QR Code
-                        </button>
-                    @else
-                        {{-- Show Scan QR Code button for receivers --}}
-                        <button class="btn btn-success btn-sm" onclick="openQrScanner()" title="Scan QR Code to Receive File">
-                            <i class="bx bx-scan me-1"></i> Scan QR Code
-                        </button>
-                    @endif
+                    {{-- Show QR Code button for all files --}}
+                    <button class="btn btn-info btn-sm" onclick="showQrCodeModal({{ $file->id }})" title="Show QR Code">
+                        <i class="bx bx-qr-scan me-1"></i> QR Code
+                    </button>
                 @endif
           </td>
           <td>

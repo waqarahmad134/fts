@@ -228,11 +228,46 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
   
   html5QrCode = new Html5Qrcode(readerElementId);
   
+  // Request camera permission first using getUserMedia
+  updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Requesting camera access...');
+  
+  try {
+    // Request permission by attempting to access camera
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    // Stop the stream immediately - we just needed permission
+    stream.getTracks().forEach(track => track.stop());
+    console.log('Camera permission granted');
+  } catch (permissionErr) {
+    console.error('Camera permission error:', permissionErr);
+    let permissionMsg = 'Camera access denied. ';
+    
+    if (permissionErr.name === 'NotAllowedError' || permissionErr.name === 'PermissionDeniedError') {
+      permissionMsg += 'Please click the camera icon in your browser\'s address bar and allow camera access, then try again.';
+    } else if (permissionErr.name === 'NotFoundError') {
+      permissionMsg += 'No camera found. Please check if a camera is connected to your device.';
+    } else if (permissionErr.name === 'NotReadableError' || permissionErr.name === 'TrackStartError') {
+      permissionMsg += 'Camera is being used by another application. Please close other apps using the camera and try again.';
+    } else {
+      permissionMsg += 'Please check your browser settings and allow camera access.';
+    }
+    
+    updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + permissionMsg + '</span>');
+    isScanning = false;
+    return;
+  }
+  
   // Get available cameras if not already loaded
   if (availableCameras.length === 0) {
+    updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Detecting cameras...');
     try {
       availableCameras = await Html5Qrcode.getCameras();
       console.log('Available cameras:', availableCameras.map(d => d.label));
+      
+      if (availableCameras.length === 0) {
+        updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> No cameras detected. Please ensure a camera is connected and try again.</span>');
+        isScanning = false;
+        return;
+      }
       
       // Show switch button if more than one camera
       const switchBtn = document.getElementById('switch-camera-btn');
@@ -240,8 +275,11 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
         switchBtn.style.display = 'inline-block';
       }
     } catch (err) {
-      console.warn('Could not enumerate cameras:', err);
+      console.error('Could not enumerate cameras:', err);
+      updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> Failed to detect cameras. Please check camera connection and browser permissions.</span>');
       availableCameras = [];
+      isScanning = false;
+      return;
     }
   }
   
@@ -287,6 +325,9 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
     aspectRatio: 1.0
   };
   
+  // Start the camera
+  updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Starting camera...');
+  
   try {
     let startPromise = null;
     
@@ -316,25 +357,34 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
     const cameraLabel = selectedCamera
       ? selectedCamera.label
       : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
-    updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.');
+    updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.</span>');
   } catch (err) {
     console.error('Failed to start QR scanner:', err);
     let errorMsg = 'Failed to start camera. ';
     
-    const errMsg = err && err.message ? err.message : '';
+    const errMsg = err && err.message ? err.message : String(err);
     const errName = err && err.name ? err.name : '';
     
-    if (errName === 'NotAllowedError' || errMsg.includes('Permission denied')) {
-      errorMsg += 'Camera permission denied. Please allow camera access in your browser settings and try again.';
-    } else if (errName === 'NotFoundError' || errMsg.includes('Requested device not found')) {
+    if (errName === 'NotAllowedError' || errMsg.includes('Permission denied') || errMsg.includes('NotAllowedError')) {
+      errorMsg += 'Camera permission denied. Please click the camera icon in your browser\'s address bar, allow camera access, then try again.';
+    } else if (errName === 'NotFoundError' || errMsg.includes('Requested device not found') || errMsg.includes('NotFoundError')) {
       errorMsg += 'No camera found. Please check if a camera is connected and try again.';
-    } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source')) {
-      errorMsg += 'Camera is being used by another application. Please close other apps using the camera and try again.';
+    } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source') || errMsg.includes('NotReadableError')) {
+      errorMsg += 'Camera is being used by another application. Please close other apps using the camera (Zoom, Teams, Skype, etc.) and try again.';
+    } else if (errMsg.includes('OverconstrainedError') || errMsg.includes('constraint')) {
+      errorMsg += 'Camera constraints not supported. Trying different camera settings...';
+      // Try with facingMode instead if deviceId failed
+      if (useCameraId && !useFacingMode) {
+        setTimeout(function() {
+          startQrScanner(null, 'environment');
+        }, 1000);
+        return;
+      }
     } else {
-      errorMsg += 'Please check camera permissions and try again.';
+      errorMsg += 'Error: ' + errMsg + '. Please check camera connection and browser permissions.';
     }
     
-    updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
+    updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>');
     isScanning = false;
   }
 };

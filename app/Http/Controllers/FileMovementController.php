@@ -74,13 +74,29 @@ class FileMovementController extends Controller
                 return redirect('/files')->with('toast_error', $message);
             }
 
-            // Get the latest movement to determine sender
-            $latestMovement = $file->movements->last();
-            $senderId = $latestMovement ? $latestMovement->receiver_id : $file->created_by;
+            // Get the latest movement to determine the current holder (sender)
+            // If no movements exist, the file creator is the current holder
+            $latestMovement = $file->movements()->orderBy('created_at', 'desc')->first();
+            $senderId = null;
+            
+            if ($latestMovement) {
+                // If there's a movement, the current holder is the receiver of the latest movement
+                // But check if the latest movement was rejected - if so, sender should be the original sender
+                if ($latestMovement->file_reject) {
+                    // If rejected, the file goes back to the sender
+                    $senderId = $latestMovement->sender_id;
+                } else {
+                    // Otherwise, current holder is the receiver
+                    $senderId = $latestMovement->receiver_id;
+                }
+            } else {
+                // No movements yet, creator is the current holder
+                $senderId = $file->created_by;
+            }
 
             // Prevent sending to yourself
             if ($senderId == $currentUser->id) {
-                $message = 'You cannot receive a file from yourself';
+                $message = 'You already have this file. You cannot receive it from yourself.';
                 if ($request->expectsJson() || $request->ajax()) {
                     return response()->json(['error' => $message], 403);
                 }
@@ -88,17 +104,29 @@ class FileMovementController extends Controller
             }
 
             // Check if file is already assigned to current user (avoid duplicates)
+            // Only check non-rejected movements
             $existingMovement = FileMovement::where('file_id', $fileId)
                 ->where('receiver_id', $currentUser->id)
-                ->latest()
+                ->where('file_reject', false)
+                ->orderBy('created_at', 'desc')
                 ->first();
 
-            if ($existingMovement && !$existingMovement->file_reject) {
+            if ($existingMovement) {
                 $message = 'File is already assigned to you';
                 if ($request->expectsJson() || $request->ajax()) {
                     return response()->json(['success' => true, 'message' => $message], 200);
                 }
                 return redirect('/files')->with('toast_info', $message);
+            }
+
+            // Validate sender exists
+            if (!$senderId || !User::find($senderId)) {
+                \Log::error('Invalid sender ID for file transfer', ['sender_id' => $senderId, 'file_id' => $fileId]);
+                $message = 'Unable to determine file sender. Please contact administrator.';
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json(['error' => $message], 500);
+                }
+                return redirect('/files')->with('toast_error', $message);
             }
 
             // Create file movement automatically
@@ -122,13 +150,24 @@ class FileMovementController extends Controller
                 return response()->json(['error' => $message], 404);
             }
             return redirect('/files')->with('toast_error', $message);
-        } catch (\Exception $e) {
-            \Log::error('QR Code scan failed: ' . $e->getMessage());
-            $message = 'Failed to receive file. Please try again.';
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('QR Code scan database error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            $message = 'Database error occurred. Please try again or contact administrator.';
             if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['error' => $message], 500);
+                return response()->json(['error' => $message, 'debug' => config('app.debug') ? $e->getMessage() : null], 500);
             }
             return redirect('/files')->with('toast_error', $message);
+        } catch (\Exception $e) {
+            \Log::error('QR Code scan failed: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            $message = 'Failed to receive file: ' . ($e->getMessage() ?? 'Unknown error occurred');
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['error' => config('app.debug') ? $message : 'Failed to receive file. Please try again.'], 500);
+            }
+            return redirect('/files')->with('toast_error', config('app.debug') ? $message : 'Failed to receive file. Please try again.');
         }
     }
 

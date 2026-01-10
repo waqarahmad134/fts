@@ -110,12 +110,23 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center">
+        <!-- Manual Upload Option -->
+        <div class="mb-3">
+          <label for="qr-image-upload" class="btn btn-outline-primary btn-sm">
+            <i class="bx bx-upload me-1"></i> Upload QR Code Image
+          </label>
+          <input type="file" id="qr-image-upload" accept="image/*" style="display: none;" />
+        </div>
+        <div class="text-muted small mb-3">OR</div>
         <p class="mb-3">Position the QR code within the camera frame</p>
         <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 0 auto;"></div>
         <div id="qr-reader-results" class="mt-3"></div>
         <div id="scanning-status" class="alert alert-info mt-3" style="display: none;"></div>
       </div>
       <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="switch-camera-btn" onclick="switchCamera()" style="display: none;">
+          <i class="bx bx-camera me-1"></i> Switch Camera
+        </button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="stopQrScanner()">Close</button>
       </div>
     </div>
@@ -126,6 +137,10 @@
 // Global variables for QR scanner
 let html5QrCode = null;
 let isScanning = false;
+let availableCameras = [];
+let currentCameraIndex = 0;
+let currentCameraId = null;
+let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
 
 // Wait for jQuery to be loaded before executing jQuery-dependent code
 (function() {
@@ -183,17 +198,27 @@ window.openQrScanner = function() {
   }
 };
 
-window.startQrScanner = async function() {
-  if (isScanning) {
+window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = null) {
+  if (isScanning && !cameraIdToUse && !facingModeToUse) {
     return;
   }
   
   const readerElementId = "qr-reader";
   
+  // If switching cameras, stop current scanner first
+  if (isScanning && html5QrCode) {
+    try {
+      await html5QrCode.stop();
+      html5QrCode.clear();
+    } catch (e) {
+      console.warn('Error stopping scanner:', e);
+    }
+    isScanning = false;
+  }
+  
   // Clear previous content
   const readerEl = document.getElementById(readerElementId);
   if (!readerEl) return;
-  
   readerEl.innerHTML = '';
   
   if (typeof Html5Qrcode === 'undefined') {
@@ -203,77 +228,133 @@ window.startQrScanner = async function() {
   
   html5QrCode = new Html5Qrcode(readerElementId);
   
-  // Try to get available cameras first
-  let cameraId = null;
-  let facingMode = "user"; // Start with front camera (laptop embedded camera)
+  // Get available cameras if not already loaded
+  if (availableCameras.length === 0) {
+    try {
+      availableCameras = await Html5Qrcode.getCameras();
+      console.log('Available cameras:', availableCameras.map(d => d.label));
+      
+      // Show switch button if more than one camera
+      const switchBtn = document.getElementById('switch-camera-btn');
+      if (switchBtn && availableCameras.length > 1) {
+        switchBtn.style.display = 'inline-block';
+      }
+    } catch (err) {
+      console.warn('Could not enumerate cameras:', err);
+      availableCameras = [];
+    }
+  }
   
-  try {
-    // Get list of available cameras
-    const devices = await Html5Qrcode.getCameras();
-    
-    if (devices && devices.length > 0) {
-      // Try to find front camera first (usually has "front" in label or is videoinput:0)
-      const frontCamera = devices.find(device => 
+  // Determine which camera to use
+  let useCameraId = cameraIdToUse;
+  let useFacingMode = facingModeToUse;
+  
+  if (!useCameraId && !useFacingMode) {
+    // First time starting - determine initial camera
+    if (availableCameras.length > 0) {
+      // Try to find front camera first
+      const frontCamera = availableCameras.find(device => 
         device.label.toLowerCase().includes('front') || 
         device.label.toLowerCase().includes('facing: user') ||
         device.label.toLowerCase().includes('integrated')
       );
       
-      // If front camera found, use its deviceId, otherwise use first available camera
-      cameraId = frontCamera ? frontCamera.id : devices[0].id;
-      facingMode = null; // Use deviceId instead of facingMode when we have specific camera
+      useCameraId = frontCamera ? frontCamera.id : availableCameras[0].id;
+      currentCameraIndex = frontCamera ? availableCameras.indexOf(frontCamera) : 0;
+      currentCameraId = useCameraId;
+      currentFacingMode = null;
+    } else {
+      // No cameras enumerated, use facingMode
+      useFacingMode = currentFacingMode || 'user';
+      currentCameraId = null;
     }
-  } catch (err) {
-    console.warn('Could not enumerate cameras, using facingMode:', err);
-    // Fall back to facingMode if enumeration fails
-    cameraId = null;
+  } else {
+    // Switching cameras
+    if (useCameraId) {
+      currentCameraId = useCameraId;
+      currentFacingMode = null;
+      currentCameraIndex = availableCameras.findIndex(cam => cam.id === useCameraId);
+    } else if (useFacingMode) {
+      currentFacingMode = useFacingMode;
+      currentCameraId = null;
+    }
   }
   
   // Configuration for scanning
   const config = {
-    fps: 10, // Frames per second
-    qrbox: { width: 250, height: 250 }, // Scanning area
+    fps: 10,
+    qrbox: { width: 250, height: 250 },
     aspectRatio: 1.0
   };
   
-  let startPromise = null;
-  
-  if (cameraId) {
-    try {
+  try {
+    let startPromise = null;
+    
+    if (useCameraId) {
+      console.log('Starting with camera deviceId:', useCameraId);
       startPromise = html5QrCode.start(
-        cameraId,
-        {
-          fps: config.fps,
-          qrbox: config.qrbox
-        },
-        onScanSuccess,
-        onScanError
-      );
-    } catch (err) {
-      console.warn('Failed to start with cameraId, trying facingMode:', err);
-      startPromise = html5QrCode.start(
-        { facingMode: facingMode },
+        { deviceId: { exact: useCameraId } },
         config,
         onScanSuccess,
         onScanError
       );
+    } else if (useFacingMode) {
+      console.log('Starting with facingMode:', useFacingMode);
+      startPromise = html5QrCode.start(
+        { facingMode: useFacingMode },
+        config,
+        onScanSuccess,
+        onScanError
+      );
+    } else {
+      throw new Error('No camera selected');
     }
-  } else {
-    startPromise = html5QrCode.start(
-      { facingMode: facingMode },
-      config,
-      onScanSuccess,
-      onScanError
-    );
-  }
-  
-  startPromise.then(() => {
+    
+    await startPromise;
     isScanning = true;
-    updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started. Point at QR code to scan.');
-  }).catch((err) => {
+    const cameraLabel = useCameraId 
+      ? (availableCameras.find(c => c.id === useCameraId)?.label || 'Camera')
+      : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
+    updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.');
+  } catch (err) {
     console.error('Failed to start QR scanner:', err);
     updateScanningStatus('<span class="text-danger">Failed to start camera. Please check permissions and try again.</span>');
+    isScanning = false;
+  }
+};
+
+// Switch between cameras
+window.switchCamera = async function() {
+  if (!html5QrCode || !isScanning) {
+    return;
+  }
+  
+  try {
+    if (availableCameras.length > 1) {
+      // Switch to next camera in list
+      currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
+      const nextCamera = availableCameras[currentCameraIndex];
+      
+      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Switching camera...');
+      await startQrScanner(nextCamera.id, null);
+    } else {
+      // Switch between front and back using facingMode
+      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Switching camera...');
+      await startQrScanner(null, currentFacingMode);
+    }
+  } catch (err) {
+    console.error('Failed to switch camera:', err);
+    updateScanningStatus('<span class="text-danger">Failed to switch camera. Please try again.</span>');
+  }
+};
+    updateScanningStatus('<span class="text-danger">Failed to start camera. Please check permissions and try again.</span>');
   });
+};
+
+// Alias for manual upload compatibility
+window.handleScannedQrCode = function(decodedText) {
+  onScanSuccess(decodedText, null);
 };
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -450,6 +531,81 @@ window.stopQrScanner = function() {
     }
   }
 };
+
+// Manual QR code image upload handler
+document.addEventListener('DOMContentLoaded', function() {
+  const uploadInput = document.getElementById('qr-image-upload');
+  if (uploadInput) {
+    uploadInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      if (!file.type.startsWith('image/')) {
+        updateScanningStatus('<span class="text-danger">Please select an image file (PNG, JPG, etc.)</span>');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const imageUrl = event.target.result;
+        
+        // Use Html5Qrcode to scan from image file
+        if (typeof Html5Qrcode === 'undefined') {
+          updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
+          return;
+        }
+        
+        // Stop any active camera scanning
+        if (isScanning && html5QrCode) {
+          stopQrScanner();
+        }
+        
+        // Create a temporary Html5Qrcode instance for file scanning
+        const fileBasedInstance = new Html5Qrcode("qr-reader");
+        
+        updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
+        
+        fileBasedInstance.scanFile(imageUrl, true)
+          .then(decodedText => {
+            // Successfully decoded
+            updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
+            fileBasedInstance.clear();
+            handleScannedQrCode(decodedText);
+          })
+          .catch(err => {
+            console.error('Error scanning file:', err);
+            let errorMsg = 'Failed to read QR code from image. ';
+            if (err.message && err.message.includes('No QR code')) {
+              errorMsg += 'No QR code found in the image. Please ensure the image contains a valid QR code.';
+            } else {
+              errorMsg += 'Please try again with a clearer image.';
+            }
+            updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
+            fileBasedInstance.clear();
+            
+            // Clear the input so user can try again
+            uploadInput.value = '';
+          });
+      };
+      
+      reader.onerror = function() {
+        updateScanningStatus('<span class="text-danger">Failed to read the image file. Please try again.</span>');
+        uploadInput.value = '';
+      };
+      
+      reader.readAsDataURL(file);
+    });
+  }
+  
+  // Handle modal close to reset camera list for next time
+  const modalEl = document.getElementById('qrScannerModal');
+  if (modalEl) {
+    modalEl.addEventListener('hidden.bs.modal', function() {
+      availableCameras = [];
+      currentCameraIndex = 0;
+    });
+  }
+});
 </script>
 
 @endsection

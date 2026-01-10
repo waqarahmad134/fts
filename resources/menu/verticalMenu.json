@@ -84,6 +84,12 @@
       ]
     },
     {
+      "url": "logs",
+      "name": "Error Logs",
+      "icon": "menu-icon tf-icons bx bx-error-circle",
+      "slug": "error-logs"
+    },
+    {
       "name": "Settings",
       "icon": "menu-icon tf-icons bx bx-user",
       "slug": "profile-settings",

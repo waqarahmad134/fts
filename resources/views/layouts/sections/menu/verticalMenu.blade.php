@@ -113,6 +113,16 @@
     </li>
     @endif
 
+    {{-- Error Logs (Admin Only) --}}
+    @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
+    <li class="menu-item {{ request()->is('logs*') ? 'active' : '' }}">
+      <a href="{{ url('logs') }}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-error-circle"></i>
+        <div>Error Logs</div>
+      </a>
+    </li>
+    @endif
+
     {{-- Settings --}}
     <li class="menu-item {{ request()->is('profile') ? 'active' : '' }}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">

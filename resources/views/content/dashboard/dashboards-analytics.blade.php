@@ -349,9 +349,6 @@ window.switchCamera = async function() {
     updateScanningStatus('<span class="text-danger">Failed to switch camera. Please try again.</span>');
   }
 };
-    updateScanningStatus('<span class="text-danger">Failed to start camera. Please check permissions and try again.</span>');
-  });
-};
 
 // Alias for manual upload compatibility
 window.handleScannedQrCode = function(decodedText) {
@@ -477,6 +474,22 @@ function onScanError(errorMessage) {
   // Only log if it's a critical error
   if (errorMessage && !errorMessage.includes('NotFoundException') && !errorMessage.includes('No MultiFormat Readers')) {
     console.debug('QR Scan error:', errorMessage);
+  }
+}
+
+function updateScanningStatus(message) {
+  const statusEl = document.getElementById('scanning-status');
+  if (!statusEl) return;
+  
+  const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
+    ? (window.jQuery || window.$) 
+    : null;
+  
+  if ($) {
+    $(statusEl).html(message).show();
+  } else {
+    statusEl.innerHTML = message;
+    statusEl.style.display = message ? 'block' : 'none';
   }
 }
 

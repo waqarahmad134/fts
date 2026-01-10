@@ -551,8 +551,9 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
     
     await startPromise;
     isScanning = true;
-    const cameraLabel = useCameraId 
-      ? (availableCameras.find(c => c.id === useCameraId)?.label || 'Camera')
+    const selectedCamera = availableCameras.find(c => c.id === useCameraId);
+    const cameraLabel = selectedCamera 
+      ? selectedCamera.label 
       : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
       updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.');
   } catch (err) {
@@ -652,12 +653,7 @@ document.addEventListener('DOMContentLoaded', function() {
       reader.readAsDataURL(file);
     });
   }
-      const errorMsg = 'Failed to access camera. Please ensure:\n1. Camera permissions are granted\n2. A camera is available\n3. No other application is using the camera';
-      updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>', true);
-      alert(errorMsg);
-    }
-  });
-}
+});
 
 // Helper function to update scanning status (works with or without jQuery)
 window.updateScanningStatus = function(html, show = true) {
@@ -731,7 +727,8 @@ window.handleScannedQrCode = function(decodedText) {
   // Use fetch API if jQuery not available, otherwise use jQuery
   if (!$ || typeof $.ajax === 'undefined') {
     // Use fetch API as fallback
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
     fetch("{{ url('/file-movements/scan') }}/" + fileId, {
       method: 'GET',
       headers: {
@@ -803,7 +800,7 @@ window.handleScannedQrCode = function(decodedText) {
       } else if (xhr.status === 403) {
         errorMessage = 'You cannot receive this file.';
       } else if (xhr.status === 400) {
-        errorMessage = xhr.responseJSON?.error || 'Invalid request.';
+        errorMessage = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Invalid request.';
       } else if (xhr.responseJSON && xhr.responseJSON.error) {
         errorMessage = xhr.responseJSON.error;
       } else if (xhr.responseJSON && xhr.responseJSON.message) {
@@ -881,7 +878,7 @@ function openViewModal(file) {
     <strong>Subject:</strong> ${file.subject}<br>
     <strong>PUC/Proposal:</strong> ${file.puc_proposal}<br>
     <strong>Status:</strong> ${file.status}<br>
-    <strong>Created By:</strong> ${file.creator?.name ?? 'N/A'}<br><br>
+    <strong>Created By:</strong> ${file.creator ? file.creator.name : 'N/A'}<br><br>
     
     <strong>Image:</strong><br>
       ${file.file_image ? `<img src="${BASE_URL}/${file.file_image}" alt="Image" class="img-fluid mb-3">` : 'No image uploaded'}<br>
@@ -898,7 +895,7 @@ function openViewModal(file) {
       <li class="list-group-item">
         <strong>Movement #${index + 1}</strong><br>
         <strong>Sender ID:</strong> ${move.sender_id}<br>
-        <strong>Receiver:</strong> ${move.receiver?.name ?? 'N/A'} (${move.receiver?.role?.name ?? 'N/A'})<br>
+        <strong>Receiver:</strong> ${move.receiver ? move.receiver.name : 'N/A'} (${move.receiver && move.receiver.role ? move.receiver.role.name : 'N/A'})<br>
         <strong>Note:</strong> ${move.file_note ?? 'N/A'}<br>
         <strong>Rejected:</strong> ${move.file_reject ? 'Yes' : 'No'}<br>
         <strong>Receive Date:</strong> ${move.receive_date}

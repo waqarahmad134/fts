@@ -312,8 +312,9 @@ window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = n
     
     await startPromise;
     isScanning = true;
-    const cameraLabel = useCameraId 
-      ? (availableCameras.find(c => c.id === useCameraId)?.label || 'Camera')
+    const selectedCamera = availableCameras.find(c => c.id === useCameraId);
+    const cameraLabel = selectedCamera 
+      ? selectedCamera.label 
       : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
     updateScanningStatus('<i class="bx bx-camera me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.');
   } catch (err) {
@@ -408,7 +409,8 @@ function onScanSuccess(decodedText, decodedResult) {
   
   // Make AJAX call to scan endpoint
   const scanUrl = '/file-movements/scan/' + fileId;
-  const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+  const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+  const token = tokenMeta ? tokenMeta.getAttribute('content') : '';
   
   if (typeof fetch !== 'undefined') {
     fetch(scanUrl, {

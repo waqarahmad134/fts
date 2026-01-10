@@ -34,7 +34,7 @@
     @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
     <li class="menu-item {{ request()->is('users*') ? 'active open' : '' }}">
         <a href="javascript:void(0);" class="menu-link menu-toggle">
-            <i class="menu-icon tf-icons bx bx-table"></i>
+            <i class="menu-icon tf-icons bx bx-user"></i>
             <div>Users</div>
         </a>
         <ul class="menu-sub">
@@ -54,7 +54,7 @@
     {{-- Files Menu --}}
     <li class="menu-item {{ request()->is('files*') ? 'active open' : '' }}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-table"></i>
+        <i class="menu-icon tf-icons bx bx-folder"></i>
         <div>Files</div>
       </a>
       <ul class="menu-sub">
@@ -73,7 +73,7 @@
     {{-- Files History --}}
     <li class="menu-item {{ request()->is('history') ? 'active' : '' }}">
       <a href="{{ route('files.history') }}" class="menu-link">
-        <i class="menu-icon tf-icons bx bx-table"></i>
+        <i class="menu-icon tf-icons bx bx-history"></i>
         <div>Files History (Closed)</div>
       </a>
     </li>
@@ -83,7 +83,7 @@
 
     <li class="menu-item {{ request()->is('roles*') ? 'active open' : '' }}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-table"></i>
+        <i class="menu-icon tf-icons bx bx-shield"></i>
         <div>Roles</div>
       </a>
       <ul class="menu-sub">
@@ -99,7 +99,7 @@
     {{-- Wings --}}
     <li class="menu-item {{ request()->is('wings*') ? 'active open' : '' }}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-table"></i>
+        <i class="menu-icon tf-icons bx bx-building"></i>
         <div>Wing</div>
       </a>
       <ul class="menu-sub">
@@ -126,7 +126,7 @@
     {{-- Settings --}}
     <li class="menu-item {{ request()->is('profile') ? 'active' : '' }}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-user"></i>
+        <i class="menu-icon tf-icons bx bx-cog"></i>
         <div>Settings</div>
       </a>
       <ul class="menu-sub">

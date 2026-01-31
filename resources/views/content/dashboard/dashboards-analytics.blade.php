@@ -110,7 +110,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center">
-        <!-- Manual Upload Option -->
+        {{-- Manual Upload Option - commented out for now
         <div class="mb-3">
           <label for="qr-image-upload" class="btn btn-outline-primary btn-sm">
             <i class="bx bx-upload me-1"></i> Upload QR Code Image
@@ -118,6 +118,7 @@
           <input type="file" id="qr-image-upload" accept="image/*" style="display: none;" />
         </div>
         <div class="text-muted small mb-3">OR</div>
+        --}}
         <p class="mb-3">Position the QR code within the camera frame</p>
         <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 0 auto;"></div>
         <div id="qr-reader-results" class="mt-3"></div>
@@ -621,7 +622,8 @@ window.stopQrScanner = function() {
   }
 };
 
-// Manual QR code image upload handler
+// Manual QR code image upload handler - commented out for now
+/*
 document.addEventListener('DOMContentLoaded', function() {
   const uploadInput = document.getElementById('qr-image-upload');
   if (uploadInput) {
@@ -634,30 +636,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      // Use Html5Qrcode to scan from image file
       if (typeof Html5Qrcode === 'undefined') {
         updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
         return;
       }
       
-      // Stop any active camera scanning
       if (isScanning && html5QrCode) {
         stopQrScanner();
       }
       
-      // Create a temporary Html5Qrcode instance for file scanning
       const fileBasedInstance = new Html5Qrcode("qr-reader");
       
       updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
       
-      // Pass the File object directly (not data URL)
       fileBasedInstance.scanFile(file, true)
         .then(decodedText => {
-          // Successfully decoded
           updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
           fileBasedInstance.clear();
           handleScannedQrCode(decodedText);
-          // Clear the input so user can upload again
           uploadInput.value = '';
         })
         .catch(err => {
@@ -670,14 +666,15 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
           fileBasedInstance.clear();
-          
-          // Clear the input so user can try again
           uploadInput.value = '';
         });
     });
   }
-  
-  // Handle modal close to reset camera list for next time
+});
+*/
+
+// Handle modal close to reset camera list for next time
+document.addEventListener('DOMContentLoaded', function() {
   const modalEl = document.getElementById('qrScannerModal');
   if (modalEl) {
     modalEl.addEventListener('hidden.bs.modal', function() {

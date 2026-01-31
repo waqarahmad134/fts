@@ -240,7 +240,7 @@
         </div>
         <p class="text-muted small mb-3">Share this QR code with others to transfer the file</p>
         
-        <!-- Download Section -->
+        {{-- Download Section - commented out for now
         <div class="border-top pt-3 mt-3">
           <p class="mb-2 fw-semibold">Download QR Code</p>
           <div class="d-flex gap-2 justify-content-center flex-wrap">
@@ -255,6 +255,7 @@
             </button>
           </div>
         </div>
+        --}}
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -271,7 +272,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center">
-        <!-- Manual Upload Option -->
+        {{-- Manual Upload Option - commented out for now
         <div class="mb-3">
           <label for="qr-image-upload" class="btn btn-outline-primary btn-sm">
             <i class="bx bx-upload me-1"></i> Upload QR Code Image
@@ -279,6 +280,7 @@
           <input type="file" id="qr-image-upload" accept="image/*" style="display: none;" />
         </div>
         <div class="text-muted small mb-3">OR</div>
+        --}}
         <p class="mb-3">Position the QR code within the camera frame</p>
         <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 0 auto;"></div>
         <div id="qr-reader-results" class="mt-3"></div>
@@ -392,7 +394,8 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
       });
     };
     
-    // Download QR Code in specified format
+    // Download QR Code in specified format - commented out for now
+    /*
     window.downloadQrCode = function(format) {
       if (!window.currentQrFileId) {
         alert('File ID not found. Please try again.');
@@ -423,35 +426,24 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
       
       img.onload = function() {
         try {
-          // Create canvas
           const canvas = document.createElement('canvas');
-          canvas.width = 500; // High quality for download
+          canvas.width = 500;
           canvas.height = 500;
           const ctx = canvas.getContext('2d');
-          
-          // Fill white background
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          
-          // Draw image
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          // Convert to requested format
           let mimeType = 'image/png';
           let fileExtension = 'png';
-          
           if (format === 'jpg' || format === 'jpeg') {
             mimeType = 'image/jpeg';
             fileExtension = 'jpg';
           }
-          
-          // Convert canvas to blob and download
           canvas.toBlob(function(blob) {
             if (!blob) {
               alert('Failed to convert QR code. Please try downloading as SVG instead.');
               return;
             }
-            
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -459,8 +451,6 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
-            // Clean up
             setTimeout(function() {
               URL.revokeObjectURL(url);
             }, 100);
@@ -475,9 +465,9 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
         alert('Failed to load QR code image. Please try again.');
       };
       
-      // Load the image (use the current src from the modal)
       img.src = qrImage.src;
     };
+    */
     
     // Modal close handler will be attached in DOMContentLoaded below
   });
@@ -768,7 +758,8 @@ window.switchCamera = async function() {
   }
 };
 
-// Manual QR code image upload handler
+// Manual QR code image upload handler - commented out for now
+/*
 document.addEventListener('DOMContentLoaded', function() {
   const uploadInput = document.getElementById('qr-image-upload');
   if (uploadInput) {
@@ -781,30 +772,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      // Use Html5Qrcode to scan from image file
       if (typeof Html5Qrcode === 'undefined') {
         updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
         return;
       }
       
-      // Stop any active camera scanning
       if (isScanning && html5QrCode) {
         stopQrScanner();
       }
       
-      // Create a temporary Html5Qrcode instance for file scanning
       const fileBasedInstance = new Html5Qrcode("qr-reader");
       
       updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
       
-      // Pass the File object directly (not data URL)
       fileBasedInstance.scanFile(file, true)
         .then(decodedText => {
-          // Successfully decoded
           updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
           fileBasedInstance.clear();
           handleScannedQrCode(decodedText);
-          // Clear the input so user can upload again
           uploadInput.value = '';
         })
         .catch(err => {
@@ -817,13 +802,12 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
           fileBasedInstance.clear();
-          
-          // Clear the input so user can try again
           uploadInput.value = '';
         });
     });
   }
 });
+*/
 
 // Helper function to update scanning status (works with or without jQuery)
 window.updateScanningStatus = function(html, show = true) {

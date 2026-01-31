@@ -42,6 +42,28 @@ $navbarDetached = ($navbarDetached ?? '');
         <!-- /Search -->
         <ul class="navbar-nav flex-row align-items-center ms-auto">
 
+          <!-- Notification Bell -->
+          @php
+            $pendingFilesCount = \App\Models\FileMovement::where('receiver_id', auth()->id())
+              ->where('file_reject', false)
+              ->whereHas('file', function($query) {
+                $query->where('status', '!=', 'closed');
+              })
+              ->count();
+          @endphp
+          
+          @if($pendingFilesCount > 0)
+          <li class="nav-item me-2">
+            <a href="{{ route('files.index') }}" class="nav-link position-relative" title="You have {{ $pendingFilesCount }} pending files">
+              <i class="bx bx-bell bx-tada fs-4 lh-0"></i>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                {{ $pendingFilesCount }}
+                <span class="visually-hidden">pending files</span>
+              </span>
+            </a>
+          </li>
+          @endif
+
           <!-- Place this tag where you want the button to render. -->
 
           {{auth()->user()->name}}  &nbsp;

@@ -18,7 +18,7 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = Role::all();
+        $roles = Role::orderBy('level')->get();
         $supervisors = User::all();
         return view('users.create', compact('roles', 'supervisors'));
     }
@@ -55,7 +55,7 @@ class UserController extends Controller
     public function edit($id)
     {
         $user = User::findOrFail($id);
-        $roles = Role::all();
+        $roles = Role::orderBy('level')->get();
         $supervisors = User::where('id', '!=', $id)->get();
         return view('users.edit', compact('user', 'roles', 'supervisors'));
     }

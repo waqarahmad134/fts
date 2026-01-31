@@ -38,6 +38,14 @@
           </div>
 
           <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Handover Note</label>
+            <div class="col-sm-10">
+              <textarea name="handover_note" class="form-control" placeholder="Add any notes for handover (optional)" rows="3">{{ $file->handover_note }}</textarea>
+              <small class="text-muted">This note will be visible when the file is transferred to another user</small>
+            </div>
+          </div>
+
+          <div class="row mb-3">
             <label class="col-sm-2 col-form-label">Status</label>
             <div class="col-sm-10">
               <select name="status" class="form-select" required>

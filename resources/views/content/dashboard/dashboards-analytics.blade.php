@@ -23,9 +23,25 @@
               @endphp
               <h5 class="card-title text-primary">{{ $greeting }}, {{ $userRole }}! 🎉</h5>
               <p class="mb-2">Welcome <span class="fw-medium">{{ auth()->user()->name }}</span></p>
-              <p class="mb-4">You have created <span class="fw-medium">{{ $todayFilesCount }}</span> files today.</p>
+              <p class="mb-2">You have created <span class="fw-medium">{{ $todayFilesCount }}</span> files today.</p>
+              
+              @if($pendingFilesForUser > 0)
+                <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                  <h6 class="alert-heading mb-1">
+                    <i class="bx bx-bell bx-tada me-1"></i> You have {{ $pendingFilesForUser }} pending {{ $pendingFilesForUser == 1 ? 'file' : 'files' }} to review!
+                  </h6>
+                  <p class="mb-0 small">Files have been assigned to you and are waiting for your action.</p>
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              @endif
+              
               <div class="d-flex gap-2">
-                <a href="{{ route('files.index') }}" class="btn btn-sm btn-outline-primary">View Files</a>
+                <a href="{{ route('files.index') }}" class="btn btn-sm btn-outline-primary">
+                  View Files
+                  @if($pendingFilesForUser > 0)
+                    <span class="badge rounded-pill bg-danger ms-1">{{ $pendingFilesForUser }}</span>
+                  @endif
+                </a>
                 <button type="button" class="btn btn-sm btn-success" onclick="openQrScanner()" title="Scan QR Code to Receive File">
                   <i class="bx bx-scan me-1"></i> Scan QR Code
                 </button>
@@ -103,7 +119,7 @@
 
 <!-- QR Scanner Modal -->
 <div class="modal fade" id="qrScannerModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Scan QR Code to Receive File</h5>
@@ -134,6 +150,39 @@
   </div>
 </div>
 
+<!-- Note Input Modal (shown BEFORE QR scan) -->
+<div class="modal fade" id="qrNoteModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Note Before Scanning</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3 text-muted">Please enter your note before scanning the QR code. This note will be saved when you receive the file.</p>
+        <div class="mb-3">
+          <label for="receiver-note" class="form-label">Your Note <span class="text-danger">*</span></label>
+          <textarea 
+            id="receiver-note" 
+            class="form-control" 
+            rows="4" 
+            placeholder="Enter your note about receiving this file (required)"
+            required
+          ></textarea>
+          <small class="text-muted">This note will be saved with the file movement record</small>
+        </div>
+        <div id="note-error" class="alert alert-danger" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="proceedToScan()">
+          <i class="bx bx-scan me-1"></i> Proceed to Scan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Global variables for QR scanner
 let html5QrCode = null;
@@ -142,6 +191,7 @@ let availableCameras = [];
 let currentCameraIndex = 0;
 let currentCameraId = null;
 let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
+let receiverNote = null; // Store receiver's note entered before scanning
 
 // Wait for jQuery to be loaded before executing jQuery-dependent code
 (function() {
@@ -165,38 +215,88 @@ let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
   });
 })();
 
-// QR Scanner functions
+// QR Scanner functions - Show note modal first
 window.openQrScanner = function() {
   // Stop any existing scanner
   stopQrScanner();
   
-  // Use jQuery if available, otherwise use vanilla JS
   const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
     ? (window.jQuery || window.$) 
     : null;
   
+  // Reset note and error
+  document.getElementById('receiver-note').value = '';
+  document.getElementById('note-error').style.display = 'none';
+  receiverNote = null;
+  
+  // Show note modal first
   if ($) {
-    $('#qrScannerModal').modal('show');
-    $('#qrScannerModal').off('shown.bs.modal').on('shown.bs.modal', function() {
-      startQrScanner();
-    });
-    $('#qrScannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function() {
-      stopQrScanner();
-    });
+    $('#qrNoteModal').modal('show');
   } else {
-    // Fallback for vanilla JS
-    const modalEl = document.getElementById('qrScannerModal');
-    if (modalEl) {
-      const modal = new bootstrap.Modal(modalEl);
-      modal.show();
-      modalEl.addEventListener('shown.bs.modal', function() {
-        startQrScanner();
-      }, { once: true });
-      modalEl.addEventListener('hidden.bs.modal', function() {
-        stopQrScanner();
-      }, { once: true });
+    const noteModalEl = document.getElementById('qrNoteModal');
+    if (noteModalEl) {
+      const noteModal = new bootstrap.Modal(noteModalEl);
+      noteModal.show();
     }
   }
+};
+
+// Proceed to scan after note is entered
+window.proceedToScan = function() {
+  const note = document.getElementById('receiver-note').value.trim();
+  const errorEl = document.getElementById('note-error');
+  
+  // Validate note
+  if (!note) {
+    errorEl.textContent = 'Please enter a note before proceeding to scan.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  
+  // Store the note
+  receiverNote = note;
+  errorEl.style.display = 'none';
+  
+  const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
+    ? (window.jQuery || window.$) 
+    : null;
+  
+  // Close note modal
+  if ($) {
+    $('#qrNoteModal').modal('hide');
+  } else {
+    const noteModalEl = document.getElementById('qrNoteModal');
+    if (noteModalEl) {
+      const noteModal = bootstrap.Modal.getInstance(noteModalEl);
+      if (noteModal) noteModal.hide();
+    }
+  }
+  
+  // Open scanner modal after a short delay
+  setTimeout(() => {
+    if ($) {
+      $('#qrScannerModal').modal('show');
+      $('#qrScannerModal').off('shown.bs.modal').on('shown.bs.modal', function() {
+        startQrScanner();
+      });
+      $('#qrScannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function() {
+        stopQrScanner();
+      });
+    } else {
+      // Fallback for vanilla JS
+      const modalEl = document.getElementById('qrScannerModal');
+      if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        modalEl.addEventListener('shown.bs.modal', function() {
+          startQrScanner();
+        }, { once: true });
+        modalEl.addEventListener('hidden.bs.modal', function() {
+          stopQrScanner();
+        }, { once: true });
+      }
+    }
+  }, 300);
 };
 
 window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = null) {
@@ -470,8 +570,8 @@ function onScanSuccess(decodedText, decodedResult) {
     statusEl.style.display = 'block';
   }
   
-  // Make AJAX call to scan endpoint
-  const scanUrl = "{{ url('/file-movements/scan') }}/" + fileId;
+  // Make AJAX call to scan endpoint with note
+  const scanUrl = "{{ url('/file-movements/scan') }}/" + fileId + (receiverNote ? "?file_note=" + encodeURIComponent(receiverNote) : "");
   const tokenMeta = document.querySelector('meta[name="csrf-token"]');
   const token = tokenMeta ? tokenMeta.getAttribute('content') : '';
   
@@ -524,22 +624,45 @@ function onScanSuccess(decodedText, decodedResult) {
     .catch(error => {
       console.error('QR Scan error:', error);
       const errorMsg = error.message || 'Network error. Please try again.';
-      updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>');
       
-      setTimeout(() => {
-        const modalEl = document.getElementById('qrScannerModal');
-        if (modalEl) {
-          const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
-            ? (window.jQuery || window.$) 
-            : null;
-          if ($) {
-            $('#qrScannerModal').modal('hide');
-          } else {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-          }
+      // Close scanner modal
+      const modalEl = document.getElementById('qrScannerModal');
+      const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
+        ? (window.jQuery || window.$) 
+        : null;
+      
+      if (modalEl) {
+        if ($) {
+          $('#qrScannerModal').modal('hide');
+        } else {
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          if (modal) modal.hide();
         }
-      }, 3000);
+      }
+      
+      // Show error in SweetAlert for better formatting
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'File Transfer Failed',
+          html: errorMsg.replace(/\n/g, '<br>'),
+          confirmButtonColor: '#696cff',
+          confirmButtonText: 'OK, Got it!'
+        });
+      } else {
+        // Fallback
+        updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>');
+        setTimeout(() => {
+          if (modalEl) {
+            if ($) {
+              $('#qrScannerModal').modal('hide');
+            } else {
+              const modal = bootstrap.Modal.getInstance(modalEl);
+              if (modal) modal.hide();
+            }
+          }
+        }, 5000);
+      }
     });
   }
 }
@@ -682,7 +805,20 @@ document.addEventListener('DOMContentLoaded', function() {
       currentCameraIndex = 0;
     });
   }
+  
+  // Auto-open QR scanner modal after login (only on dashboard)
+  // Check if user just logged in by checking session flag
+  @if(Session::has('just_logged_in'))
+    // Wait a moment for page to fully load
+    setTimeout(function() {
+      if (typeof openQrScanner === 'function') {
+        openQrScanner();
+      }
+    }, 1000);
+  @endif
 });
+
+// Note: submitFileNote function removed - note is now entered before scanning
 </script>
 
 @endsection

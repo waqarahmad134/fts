@@ -117,7 +117,15 @@ class FileController extends Controller
     
         $files = $filesQuery->orderByDesc('created_at')->paginate(10);
     
-        return view('files.index', compact('files', 'users'));
+        // Count pending files assigned to current user
+        $pendingFilesForUser = \App\Models\FileMovement::where('receiver_id', $currentUser->id)
+            ->where('file_reject', false)
+            ->whereHas('file', function($query) {
+                $query->where('status', '!=', 'closed');
+            })
+            ->count();
+    
+        return view('files.index', compact('files', 'users', 'pendingFilesForUser'));
     }
 
     public function file_history()
@@ -190,6 +198,7 @@ class FileController extends Controller
             'file_no' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
+            'handover_note' => 'nullable|string',
             'file_attachment' => 'nullable|file|mimes:pdf,doc,docx',
             'file_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg',
         ]);
@@ -214,24 +223,40 @@ class FileController extends Controller
         }
 
         // dd($data);
-        File::create($data);
+        $newFile = File::create($data);
 
-        return redirect('/files')->with('toast_success', 'File created successfully');
+        // Flash the file ID to show SweetAlert with print option
+        return redirect('/files')->with('file_created', $newFile->id);
     }
 
     public function edit($id)
     {
         $file = File::findOrFail($id);
+        $currentUser = auth()->user();
+        
+        // Allow access if: Admin, or file creator
+        if (strtolower($currentUser->role->name) !== 'admin' && $file->created_by !== $currentUser->id) {
+            return redirect('/files')->with('toast_error', 'Unauthorized: You can only edit files you created.');
+        }
+        
         return view('files.edit', compact('file'));
     }
 
     public function update(Request $request, $id)
     {
         $file = File::findOrFail($id);
+        $currentUser = auth()->user();
+        
+        // Allow access if: Admin, or file creator
+        if (strtolower($currentUser->role->name) !== 'admin' && $file->created_by !== $currentUser->id) {
+            return redirect('/files')->with('toast_error', 'Unauthorized: You can only update files you created.');
+        }
+        
         $request->validate([
             'file_no' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
+            'handover_note' => 'nullable|string',
             'file_attachment' => 'nullable|file|mimes:pdf,doc,docx',
             'file_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg',
             'status' => 'required|in:pending,closed,reopened'
@@ -280,6 +305,12 @@ class FileController extends Controller
     {
         try {
             $file = File::findOrFail($id);
+            $currentUser = auth()->user();
+            
+            // Allow access if: Admin, or file creator
+            if (strtolower($currentUser->role->name) !== 'admin' && $file->created_by !== $currentUser->id) {
+                return redirect('/files')->with('toast_error', 'Unauthorized: You can only delete files you created.');
+            }
             
             // Delete associated files if they exist
             if ($file->file_attachment && file_exists(public_path($file->file_attachment))) {
@@ -367,6 +398,28 @@ class FileController extends Controller
     public function getQrCodeUrl($fileId)
     {
         return url("/files/{$fileId}/qr-code");
+    }
+
+    /**
+     * Print file with QR code
+     */
+    public function print($id)
+    {
+        $file = File::with(['creator', 'movements.receiver.role'])->findOrFail($id);
+        $currentUser = auth()->user();
+        
+        // Allow access if: Admin, or file creator, or has received the file
+        $isCreator = $file->created_by === $currentUser->id;
+        $isAdmin = strtolower($currentUser->role->name) === 'admin';
+        $hasReceivedFile = $file->movements()
+            ->where('receiver_id', $currentUser->id)
+            ->exists();
+        
+        if (!$isCreator && !$isAdmin && !$hasReceivedFile) {
+            return redirect('/files')->with('toast_error', 'Unauthorized: You cannot print this file.');
+        }
+        
+        return view('files.print', compact('file'));
     }
 }
 

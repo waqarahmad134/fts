@@ -96,7 +96,7 @@
       </ul>
     </li>
 
-    {{-- Wings --}}
+    {{-- Wings (commented out)
     <li class="menu-item {{ request()->is('wings*') ? 'active open' : '' }}">
       <a href="javascript:void(0);" class="menu-link menu-toggle">
         <i class="menu-icon tf-icons bx bx-building"></i>
@@ -111,6 +111,7 @@
         </li>
       </ul>
     </li>
+    --}}
     @endif
 
     {{-- Error Logs (Admin Only) --}}

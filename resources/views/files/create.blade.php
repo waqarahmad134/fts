@@ -37,6 +37,14 @@
           </div>
 
           <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Handover Note</label>
+            <div class="col-sm-10">
+              <textarea name="handover_note" class="form-control" placeholder="Add any notes for handover (optional)" rows="3"></textarea>
+              <small class="text-muted">This note will be visible when the file is transferred to another user</small>
+            </div>
+          </div>
+
+          <div class="row mb-3">
             <label class="col-sm-2 col-form-label">Attachment (PDF/DOC/DOCX)</label>
             <div class="col-sm-10">
               <input type="file" name="file_attachment" class="form-control" accept=".pdf,.doc,.docx">

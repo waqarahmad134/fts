@@ -4,6 +4,8 @@
 <script src="{{ asset(('public/assets/vendor/js/bootstrap.js')) }}"></script>
 <script src="{{ asset(('public/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js')) }}"></script>
 <script src="{{ asset(('public/assets/vendor/js/menu.js')) }}"></script>
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @yield('vendor-script')
 <!-- END: Page Vendor JS-->
 <script src="{{ asset(('public/assets/js/main.js')) }}"></script>

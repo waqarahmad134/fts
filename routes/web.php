@@ -90,6 +90,9 @@ Route::middleware('auth')->group(function () {
     
     //QR Code Generation
     Route::get('/files/{id}/qr-code', [FileController::class, 'generateQrCode'])->name('files.qr-code');
+    
+    //Print File with QR Code
+    Route::get('/files/{id}/print', [FileController::class, 'print'])->name('files.print');
 
 
     //Role

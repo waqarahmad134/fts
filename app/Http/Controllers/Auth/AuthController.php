@@ -29,6 +29,10 @@ class AuthController extends Controller
                 'longitude'    => $request->input('longitude'),
                 'device_token' => $request->input('device_token'),
             ]);
+            
+            // Set flag to indicate user just logged in (for auto-opening QR scanner)
+            $request->session()->flash('just_logged_in', true);
+            
             return redirect()->intended('/');
         }
 

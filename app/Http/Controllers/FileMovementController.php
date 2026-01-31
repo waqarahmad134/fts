@@ -48,8 +48,8 @@ class FileMovementController extends Controller
     }
 
     /**
-     * Handle QR code scan - automatically create file movement
-     * When a user scans the QR code, they automatically receive the file
+     * Handle QR code scan - create file movement with receiver's note
+     * File transfer requires a note from the receiver
      */
     public function scan(Request $request, $fileId)
     {
@@ -129,17 +129,88 @@ class FileMovementController extends Controller
                 return redirect('/files')->with('toast_error', $message);
             }
 
-            // Create file movement automatically
+            // HIERARCHY VALIDATION: Ensure step-by-step transfer (no role skipping)
+            $sender = User::with('role')->find($senderId);
+            $receiverRole = $currentUser->role;
+            $senderRole = $sender->role;
+            
+            // Skip hierarchy check for Admin
+            if (strtolower($receiverRole->name) !== 'admin') {
+                // Calculate the level difference
+                $levelDifference = abs($receiverRole->level - $senderRole->level);
+                
+                // Allow transfer only to adjacent levels (difference of 100)
+                // Or same level (for lateral transfers)
+                if ($levelDifference > 100) {
+                    // Determine the correct next role in hierarchy
+                    $direction = $receiverRole->level > $senderRole->level ? 'up' : 'down';
+                    
+                    if ($direction === 'up') {
+                        // File should go to next higher role
+                        $nextRole = Role::where('level', '>', $senderRole->level)
+                                       ->where('level', '<', $receiverRole->level)
+                                       ->orderBy('level')
+                                       ->first();
+                    } else {
+                        // File should go to next lower role
+                        $nextRole = Role::where('level', '<', $senderRole->level)
+                                       ->where('level', '>', $receiverRole->level)
+                                       ->orderByDesc('level')
+                                       ->first();
+                    }
+                    
+                    $message = "❌ Cannot Skip Hierarchy Levels!\n\n";
+                    $message .= "This file is currently with: {$senderRole->name}\n";
+                    $message .= "You are trying to receive as: {$receiverRole->name}\n\n";
+                    
+                    if ($nextRole) {
+                        $message .= "✅ The file must first go to: {$nextRole->name}\n\n";
+                        $message .= "Please ask the {$senderRole->name} to send this file to {$nextRole->name} first, then it can be forwarded to you.";
+                    } else {
+                        $message .= "Files must move step-by-step through the hierarchy. You cannot skip intermediate roles.";
+                    }
+                    
+                    if ($request->expectsJson() || $request->ajax()) {
+                        return response()->json([
+                            'error' => $message,
+                            'current_holder_role' => $senderRole->name,
+                            'your_role' => $receiverRole->name,
+                            'next_role_required' => $nextRole ? $nextRole->name : null
+                        ], 403);
+                    }
+                    return redirect('/files')->with('toast_error', $message);
+                }
+            }
+
+            // Check if note is provided
+            $fileNote = $request->input('file_note');
+            
+            if (!$fileNote || trim($fileNote) === '') {
+                // Note is required - return file info for note input
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json([
+                        'require_note' => true,
+                        'file_id' => $fileId,
+                        'file_no' => $file->file_no,
+                        'subject' => $file->subject,
+                        'sender_id' => $senderId,
+                        'message' => 'Please provide a note to receive this file'
+                    ], 200);
+                }
+                return redirect('/files')->with('toast_error', 'Note is required to receive the file');
+            }
+
+            // Create file movement with receiver's note
             FileMovement::create([
                 'file_id'      => $fileId,
                 'sender_id'    => $senderId,
                 'receiver_id'  => $currentUser->id,
-                'file_note'    => 'Received via QR code scan',
+                'file_note'    => $fileNote,
                 'receive_date' => now(),
                 'file_reject'  => false,
             ]);
 
-            $message = 'File received successfully via QR code scan';
+            $message = 'File received successfully with your note';
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json(['success' => true, 'message' => $message], 200);
             }

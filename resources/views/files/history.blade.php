@@ -94,7 +94,7 @@
             <a class="dropdown-item" onclick="openViewModal({{ $file }})">
               <i class="bx bx-show-alt me-1"></i> View
             </a>
-              @if (auth()->user()->role->name == 'HCJ' || auth()->user()->role->name == 'Admin')
+              @if (strtolower(auth()->user()->role->name) == 'admin' || $file->created_by == auth()->id())
               <a class="dropdown-item" href="{{ url('/files/' . $file->id . '/edit') }}">
                 <i class="bx bx-edit-alt me-1"></i> Edit
               </a>

@@ -14,7 +14,7 @@ class RoleController extends Controller
     public function index()
     {
         // Show roles in hierarchical order
-        $roles = Role::with('permissions')->paginate(10);
+        $roles = Role::with('permissions')->orderBy('level')->paginate(10);
         return view('roles.index', compact('roles'));
     }
 

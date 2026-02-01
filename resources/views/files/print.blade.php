@@ -26,10 +26,27 @@
         }
 
         .header {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 24px;
             margin-bottom: 30px;
             border-bottom: 3px solid #333;
             padding-bottom: 20px;
+        }
+
+        .header-logo {
+            flex-shrink: 0;
+        }
+
+        .header-logo img {
+            max-height: 70px;
+            width: auto;
+            display: block;
+        }
+
+        .header-text {
+            flex: 1;
+            text-align: left;
         }
 
         .header h1 {
@@ -170,28 +187,18 @@
 
     <div class="print-container">
         <div class="header">
-            <h1>File Tracking System</h1>
-            <p>File Details & QR Code</p>
-        </div>
-
-        <div class="file-details">
-            <div class="detail-row">
-                <div class="detail-label">File No:</div>
-                <div class="detail-value"><strong>{{ $file->file_no }}</strong></div>
+            <div class="header-logo">
+                <img src="{{ asset('public/assets/images/logo.png') }}" alt="Logo">
             </div>
-
+            <div class="header-text">
+                <h1>File Tracking System</h1>
+                <p>File Details & QR Code</p>
+            </div>
+        </div>
+        <div class="file-details">
             <div class="detail-row">
                 <div class="detail-label">Subject:</div>
                 <div class="detail-value">{{ $file->subject }}</div>
-            </div>
-
-            <div class="detail-row">
-                <div class="detail-label">Status:</div>
-                <div class="detail-value">
-                    <span class="status-badge status-{{ $file->status }}">
-                        {{ ucfirst($file->status) }}
-                    </span>
-                </div>
             </div>
 
             <div class="detail-row">
@@ -210,11 +217,6 @@
                 <div class="detail-value">{{ $file->handover_note }}</div>
             </div>
             @endif
-
-            <div class="detail-row">
-                <div class="detail-label">PUC Proposal:</div>
-                <div class="detail-value">{{ Str::limit($file->puc_proposal, 200) }}</div>
-            </div>
         </div>
 
         <div class="qr-section">

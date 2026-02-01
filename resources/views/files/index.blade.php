@@ -158,7 +158,13 @@
             <a class="dropdown-item cursor-pointer" onclick="openViewModal({{ $file }})">
               <i class="bx bx-show-alt me-1"></i> View
             </a>
-              @if (strtolower(auth()->user()->role->name) == 'admin' || $file->created_by == auth()->id())
+              @php
+                $isAdmin = strtolower(auth()->user()->role->name) == 'admin';
+                $isCreator = $file->created_by == auth()->id();
+                $fileInProcess = $file->movements()->where('file_reject', false)->exists();
+                $canEditDelete = $isAdmin || ($isCreator && !$fileInProcess);
+              @endphp
+              @if ($canEditDelete)
               <a class="dropdown-item" href="{{ url('/files/' . $file->id . '/edit') }}">
                 <i class="bx bx-edit-alt me-1"></i> Edit
               </a>

@@ -234,9 +234,13 @@ class FileController extends Controller
         $file = File::findOrFail($id);
         $currentUser = auth()->user();
         
-        // Allow access if: Admin, or file creator
-        if (strtolower($currentUser->role->name) !== 'admin' && $file->created_by !== $currentUser->id) {
-            return redirect('/files')->with('toast_error', 'Unauthorized: You can only edit files you created.');
+        // Admin: always allowed. Creator: only if file has not been transferred to someone else.
+        $isAdmin = strtolower($currentUser->role->name) === 'admin';
+        $isCreator = $file->created_by === $currentUser->id;
+        $fileInProcess = $file->movements()->where('file_reject', false)->exists();
+        
+        if (!$isAdmin && !($isCreator && !$fileInProcess)) {
+            return redirect('/files')->with('toast_error', 'This file is in process. Only Admin can edit it.');
         }
         
         return view('files.edit', compact('file'));
@@ -247,9 +251,13 @@ class FileController extends Controller
         $file = File::findOrFail($id);
         $currentUser = auth()->user();
         
-        // Allow access if: Admin, or file creator
-        if (strtolower($currentUser->role->name) !== 'admin' && $file->created_by !== $currentUser->id) {
-            return redirect('/files')->with('toast_error', 'Unauthorized: You can only update files you created.');
+        // Admin: always allowed. Creator: only if file has not been transferred.
+        $isAdmin = strtolower($currentUser->role->name) === 'admin';
+        $isCreator = $file->created_by === $currentUser->id;
+        $fileInProcess = $file->movements()->where('file_reject', false)->exists();
+        
+        if (!$isAdmin && !($isCreator && !$fileInProcess)) {
+            return redirect('/files')->with('toast_error', 'This file is in process. Only Admin can update it.');
         }
         
         $request->validate([
@@ -307,9 +315,13 @@ class FileController extends Controller
             $file = File::findOrFail($id);
             $currentUser = auth()->user();
             
-            // Allow access if: Admin, or file creator
-            if (strtolower($currentUser->role->name) !== 'admin' && $file->created_by !== $currentUser->id) {
-                return redirect('/files')->with('toast_error', 'Unauthorized: You can only delete files you created.');
+            // Admin: always allowed. Creator: only if file has not been transferred.
+            $isAdmin = strtolower($currentUser->role->name) === 'admin';
+            $isCreator = $file->created_by === $currentUser->id;
+            $fileInProcess = $file->movements()->where('file_reject', false)->exists();
+            
+            if (!$isAdmin && !($isCreator && !$fileInProcess)) {
+                return redirect('/files')->with('toast_error', 'This file is in process. Only Admin can delete it.');
             }
             
             // Delete associated files if they exist

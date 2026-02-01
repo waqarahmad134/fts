@@ -17,4 +17,5 @@ File send step by step like junior then assistantregistrar , no jump - hierarchy
 
 Notification system: Users see pending file count in navbar bell icon + alert messages on dashboard and files page (Done)
 
+Duplicate values: Validation and DB duplicate errors show as Bootstrap toast instead of Laravel error page (Done)
 

@@ -14,3 +14,16 @@
 <!-- BEGIN: Page JS-->
 @yield('page-script')
 <!-- END: Page JS-->
+
+<!-- Global session toasts (Bootstrap toast for duplicate/validation errors, etc.) -->
+@if(Session::has('toast_error') || Session::has('toast_success'))
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var toastEl = document.getElementById('global-session-toast');
+  if (!toastEl) return;
+  toastEl.classList.add({{ Session::has('toast_error') ? '"bg-danger"' : '"bg-success"' }});
+  var toast = new bootstrap.Toast(toastEl);
+  toast.show();
+});
+</script>
+@endif

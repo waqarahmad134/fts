@@ -68,6 +68,24 @@ $container = ($container ?? 'container-xxl');
     @endif
     <!-- Drag Target Area To SlideIn Menu On Small Screens -->
     <div class="drag-target"></div>
+
+    <!-- Global session toast (duplicate/validation errors, etc.) -->
+    @if(Session::has('toast_error') || Session::has('toast_success'))
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+      <div id="global-session-toast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+        <div class="d-flex">
+          <div class="toast-body">
+            @if(Session::has('toast_error'))
+              {{ Session::get('toast_error') }}
+            @else
+              {{ Session::get('toast_success') }}
+            @endif
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>
+    </div>
+    @endif
   </div>
   <!-- / Layout wrapper -->
   @endsection

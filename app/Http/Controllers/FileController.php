@@ -195,7 +195,7 @@ class FileController extends Controller
     {
 
         $request->validate([
-            'file_no' => 'required|string|max:255',
+            'file_no' => 'required|string|max:255|unique:files,file_no',
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
             'handover_note' => 'nullable|string',
@@ -253,7 +253,7 @@ class FileController extends Controller
         }
         
         $request->validate([
-            'file_no' => 'required|string|max:255',
+            'file_no' => 'required|string|max:255|unique:files,file_no,' . $file->id,
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
             'handover_note' => 'nullable|string',

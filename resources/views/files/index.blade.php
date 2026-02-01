@@ -1252,19 +1252,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     @endif
 
-    @if(Session::has('toast_success'))
-        var toast = document.querySelector('.toast-placement-ex');
-        toast.classList.add('bg-success');
-        var toastInstance = new bootstrap.Toast(toast);
-        toastInstance.show();
-    @endif
-
-    @if(Session::has('toast_error'))
-        var toast = document.querySelector('.toast-placement-ex');
-        toast.classList.add('bg-danger');
-        var toastInstance = new bootstrap.Toast(toast);
-        toastInstance.show();
-    @endif
+    {{-- Session toasts (duplicate/validation errors) shown by global toast in layout --}}
 });
 </script>
 @endsection

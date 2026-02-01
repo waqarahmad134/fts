@@ -294,19 +294,7 @@ function openViewModal(file) {
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    @if(Session::has('toast_success'))
-        var toast = document.querySelector('.toast-placement-ex');
-        toast.classList.add('bg-success');
-        var toastInstance = new bootstrap.Toast(toast);
-        toastInstance.show();
-    @endif
-
-    @if(Session::has('toast_error'))
-        var toast = document.querySelector('.toast-placement-ex');
-        toast.classList.add('bg-danger');
-        var toastInstance = new bootstrap.Toast(toast);
-        toastInstance.show();
-    @endif
+    {{-- Session toasts shown by global toast in layout --}}
 });
 </script>
 @endsection

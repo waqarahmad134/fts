@@ -9,6 +9,16 @@
 @endsection
 
 @section('content')
+<style>
+  /* File index: mobile responsive */
+  @media (max-width: 575.98px) {
+    .files-index-card .card { overflow: hidden; }
+    .files-index-card .card-header { flex-direction: column; align-items: stretch !important; gap: 0.75rem; }
+    .files-index-card .table-responsive { min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .files-index-card .table { margin-bottom: 0; }
+  }
+</style>
+
 <!-- Toast with Placements -->
 <div class="bs-toast toast toast-placement-ex m-2" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="2000">
   <div class="toast-header">
@@ -32,7 +42,7 @@
   <span class="text-muted fw-light">File Tracking /</span> All Files
 </h4>
 
-<div class="card">
+<div class="card files-index-card">
   @if(isset($pendingFilesForUser) && $pendingFilesForUser > 0)
     <div class="alert alert-warning alert-dismissible fade show m-3 mb-0" role="alert">
       <h6 class="alert-heading mb-1">
@@ -43,14 +53,14 @@
     </div>
   @endif
   
-  <div class="card-header d-flex justify-content-between align-items-center">
+  <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 py-3">
     <h5 class="mb-0">File Records</h5>
-    <div class="d-flex gap-2">
-      <button type="button" class="btn btn-success" onclick="openQrScanner()" title="Scan QR Code to Receive File">
+    <div class="d-flex flex-column flex-sm-row gap-2">
+      <button type="button" class="btn btn-success w-100 flex-grow-0" onclick="openQrScanner()" title="Scan QR Code to Receive File">
         <i class="bx bx-scan me-1"></i> Scan QR Code
       </button>
       @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
-      <a href="{{ url('/files/create') }}" class="btn btn-primary">
+      <a href="{{ url('/files/create') }}" class="btn btn-primary w-100 flex-grow-0">
         <i class="bx bx-plus me-1"></i> Add New File
       </a>
       @endif

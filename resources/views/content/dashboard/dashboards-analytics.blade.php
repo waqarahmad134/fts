@@ -21,8 +21,6 @@
                   $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
                   $userRole = auth()->user()->role->name ?? 'User';
               @endphp
-              <h5 class="card-title text-primary">{{ $greeting }}, {{ $userRole }}! 🎉</h5>
-              <p class="mb-2">Welcome <span class="fw-medium">{{ auth()->user()->name }}</span></p>
               <p class="mb-2">You have created <span class="fw-medium">{{ $todayFilesCount }}</span> files today.</p>
               
               @if($pendingFilesForUser > 0)
@@ -36,13 +34,13 @@
               @endif
               
               <div class="d-flex gap-2">
-                <a href="{{ route('files.index') }}" class="btn btn-sm btn-outline-primary">
+                <a href="{{ route('files.index') }}" class="btn btn-outline-primary btn-lg">
                   View Files
                   @if($pendingFilesForUser > 0)
                     <span class="badge rounded-pill bg-danger ms-1">{{ $pendingFilesForUser }}</span>
                   @endif
                 </a>
-                <button type="button" class="btn btn-sm btn-success" onclick="openQrScanner()" title="Scan QR Code to Receive File">
+                <button type="button" class="btn btn-success btn-lg" onclick="openQrScanner()" title="Scan QR Code to Receive File">
                   <i class="bx bx-scan me-1"></i> Scan QR Code
                 </button>
               </div>

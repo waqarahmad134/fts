@@ -10,11 +10,21 @@
 
 @section('content')
 
+<style>
+  /* Mobile: prevent cards and content from stretching */
+  @media (max-width: 575.98px) {
+    .dashboard-welcome .card { overflow: hidden; }
+    .dashboard-welcome .card-body { min-width: 0; }
+    .dashboard-stats .card { min-height: 0; height: auto !important; }
+    .dashboard-stats .card-body { min-width: 0; overflow: hidden; }
+  }
+</style>
+
 <div class="row">
-  <div class="col-lg-12 mb-4 order-0">
+  <div class="col-12 col-lg-12 mb-4 order-0 dashboard-welcome">
     <div class="card">
-      <div class="d-flex align-items-end row">
-        <div class="col-sm-7">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-sm-7 order-2 order-sm-1">
           <div class="card-body">
               @php
                   $hour = now()->format('H'); // 24-hour format
@@ -33,22 +43,23 @@
                 </div>
               @endif
               
-              <div class="d-flex gap-2">
-                <a href="{{ route('files.index') }}" class="btn btn-outline-primary btn-lg">
+              {{-- Buttons: stack vertically on mobile, row on larger screens --}}
+              <div class="d-flex flex-column flex-sm-row gap-2">
+                <a href="{{ route('files.index') }}" class="btn btn-outline-primary btn-lg w-100 flex-grow-0">
                   View Files
                   @if($pendingFilesForUser > 0)
                     <span class="badge rounded-pill bg-danger ms-1">{{ $pendingFilesForUser }}</span>
                   @endif
                 </a>
-                <button type="button" class="btn btn-success btn-lg" onclick="openQrScanner()" title="Scan QR Code to Receive File">
+                <button type="button" class="btn btn-success btn-lg w-100 flex-grow-0" onclick="openQrScanner()" title="Scan QR Code to Receive File">
                   <i class="bx bx-scan me-1"></i> Scan QR Code
                 </button>
               </div>
             </div>
         </div>
-        <div class="col-sm-5 text-center text-sm-left">
-          <div class="card-body pb-0 px-0 px-md-4">
-            <img src="{{asset('public/assets/img/illustrations/man-with-laptop-light.png')}}" height="140" alt="View Badge User" data-app-dark-img="illustrations/man-with-laptop-dark.png" data-app-light-img="illustrations/man-with-laptop-light.png">
+        <div class="col-12 col-sm-5 order-1 order-sm-2 text-center text-sm-left">
+          <div class="card-body pb-0 px-0 px-md-4 d-flex justify-content-center justify-content-sm-start">
+            <img src="{{asset('public/assets/img/illustrations/man-with-laptop-light.png')}}" height="140" alt="View Badge User" class="img-fluid" style="max-height: 140px;" data-app-dark-img="illustrations/man-with-laptop-dark.png" data-app-light-img="illustrations/man-with-laptop-light.png">
           </div>
         </div>
       </div>
@@ -56,10 +67,10 @@
   </div>
  
  
-  <div class="col-12 order-3 order-md-2">
-    <div class="row">
-      <div class="col mb-4">
-        <div class="card">
+  <div class="col-12 order-3 order-md-2 dashboard-stats">
+    <div class="row g-3">
+      <div class="col-12 col-sm-6 col-xl-3 mb-4 mb-sm-0">
+        <div class="card h-100">
           <div class="card-body">
             <div class="card-title d-flex align-items-start justify-content-between">
               <div class="avatar flex-shrink-0">
@@ -68,11 +79,10 @@
             </div>
             <span class="fw-semibold d-block mb-1">Total Files</span>
             <h3 class="card-title mb-2">{{$totalFiles}}</h3>
-            <!-- <small class="text-success fw-semibold"><i class='bx bx-up-arrow-alt'></i> +72.80%</small> -->
           </div>
         </div>
       </div>
-      <div class="col mb-4">
+      <div class="col-12 col-sm-6 col-xl-3 mb-4 mb-sm-0">
         <div class="card h-100">
           <div class="card-body">
             <div class="card-title d-flex align-items-start justify-content-between">
@@ -85,8 +95,8 @@
           </div>
         </div>
       </div>
-      <div class="col mb-4">
-        <div class="card">
+      <div class="col-12 col-sm-6 col-xl-3 mb-4 mb-sm-0">
+        <div class="card h-100">
           <div class="card-body">
             <div class="card-title d-flex align-items-start justify-content-between">
               <div class="avatar flex-shrink-0">
@@ -98,8 +108,8 @@
           </div>
         </div>
       </div>
-      <div class="col mb-4">
-        <div class="card">
+      <div class="col-12 col-sm-6 col-xl-3 mb-4 mb-sm-0">
+        <div class="card h-100">
           <div class="card-body">
             <div class="card-title d-flex align-items-start justify-content-between">
               <div class="avatar flex-shrink-0">

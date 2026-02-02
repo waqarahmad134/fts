@@ -141,6 +141,9 @@
                 @if ($file->status == 'closed')
                     <span class="text-muted">File Closed</span>
                 @else
+                    <a href="{{ url('/files/' . $file->id . '/print') }}" target="_blank" class="btn btn-secondary btn-sm" title="Print file with QR code">
+                        <i class="bx bx-printer me-1"></i> Print
+                    </a>
                     {{-- Show QR Code button for all files --}}
                     <button class="btn btn-info btn-sm" onclick="showQrCodeModal({{ $file->id }})" title="Show QR Code">
                         <i class="bx bx-qr-scan me-1"></i> QR Code

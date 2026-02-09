@@ -21,19 +21,19 @@ class FileMovementController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'file_id'     => 'required|exists:files,id',
+            'file_id' => 'required|exists:files,id',
             'receiver_id' => 'required|exists:users,id',
-            'file_note'   => 'nullable|string',
+            'file_note' => 'nullable|string',
             'file_reject' => 'nullable|boolean',
         ]);
 
         FileMovement::create([
-            'file_id'      => $validated['file_id'],
-            'sender_id'    => Auth::id(),
-            'receiver_id'  => $validated['receiver_id'],
-            'file_note'    => $validated['file_note'],
+            'file_id' => $validated['file_id'],
+            'sender_id' => Auth::id(),
+            'receiver_id' => $validated['receiver_id'],
+            'file_note' => $validated['file_note'],
             'receive_date' => now(),
-            'file_reject'  => $validated['file_reject'] ?? false,
+            'file_reject' => $validated['file_reject'] ?? false,
         ]);
 
         $message = ($validated['file_reject'] ?? false) ? 'File returned successfully' : 'File sent successfully';
@@ -78,7 +78,7 @@ class FileMovementController extends Controller
             // If no movements exist, the file creator is the current holder
             $latestMovement = $file->movements()->orderBy('created_at', 'desc')->first();
             $senderId = null;
-            
+
             if ($latestMovement) {
                 // If there's a movement, the current holder is the receiver of the latest movement
                 // But check if the latest movement was rejected - if so, sender should be the original sender
@@ -133,43 +133,43 @@ class FileMovementController extends Controller
             $sender = User::with('role')->find($senderId);
             $receiverRole = $currentUser->role;
             $senderRole = $sender->role;
-            
+
             // Skip hierarchy check for Admin
             if (strtolower($receiverRole->name) !== 'admin') {
                 // Calculate the level difference
                 $levelDifference = abs($receiverRole->level - $senderRole->level);
-                
+
                 // Allow transfer only to adjacent levels (difference of 100)
                 // Or same level (for lateral transfers)
                 if ($levelDifference > 100) {
                     // Determine the correct next role in hierarchy
                     $direction = $receiverRole->level > $senderRole->level ? 'up' : 'down';
-                    
+
                     if ($direction === 'up') {
                         // File should go to next higher role
                         $nextRole = Role::where('level', '>', $senderRole->level)
-                                       ->where('level', '<', $receiverRole->level)
-                                       ->orderBy('level')
-                                       ->first();
+                            ->where('level', '<', $receiverRole->level)
+                            ->orderBy('level')
+                            ->first();
                     } else {
                         // File should go to next lower role
                         $nextRole = Role::where('level', '<', $senderRole->level)
-                                       ->where('level', '>', $receiverRole->level)
-                                       ->orderByDesc('level')
-                                       ->first();
+                            ->where('level', '>', $receiverRole->level)
+                            ->orderByDesc('level')
+                            ->first();
                     }
-                    
+
                     $message = "❌ Cannot Skip Hierarchy Levels!\n\n";
                     $message .= "This file is currently with: {$senderRole->name}\n";
                     $message .= "You are trying to receive as: {$receiverRole->name}\n\n";
-                    
+
                     if ($nextRole) {
                         $message .= "✅ The file must first go to: {$nextRole->name}\n\n";
                         $message .= "Please ask the {$senderRole->name} to send this file to {$nextRole->name} first, then it can be forwarded to you.";
                     } else {
                         $message .= "Files must move step-by-step through the hierarchy. You cannot skip intermediate roles.";
                     }
-                    
+
                     if ($request->expectsJson() || $request->ajax()) {
                         return response()->json([
                             'error' => $message,
@@ -184,7 +184,7 @@ class FileMovementController extends Controller
 
             // Check if note is provided
             $fileNote = $request->input('file_note');
-            
+
             if (!$fileNote || trim($fileNote) === '') {
                 // Note is required - return file info for note input
                 if ($request->expectsJson() || $request->ajax()) {
@@ -200,19 +200,34 @@ class FileMovementController extends Controller
                 return redirect('/files')->with('toast_error', 'Note is required to receive the file');
             }
 
+            // Determine if file is moving DOWN the hierarchy (return scenario)
+            $isMovingDown = $receiverRole->level < $senderRole->level;
+
             // Create file movement with receiver's note
             FileMovement::create([
-                'file_id'      => $fileId,
-                'sender_id'    => $senderId,
-                'receiver_id'  => $currentUser->id,
-                'file_note'    => $fileNote,
+                'file_id' => $fileId,
+                'sender_id' => $senderId,
+                'receiver_id' => $currentUser->id,
+                'file_note' => $fileNote,
                 'receive_date' => now(),
-                'file_reject'  => false,
+                'file_reject' => $isMovingDown, // Mark as return if moving down
             ]);
 
-            $message = 'File received successfully with your note';
+            // If file is moving DOWN the hierarchy, automatically update status to 'reopened'
+            // This is a system-level action and doesn't require edit_file_statuses permission
+            if ($isMovingDown && $file->status !== 'reopened') {
+                $file->status = 'reopened';
+                $file->save();
+            }
+
+            $message = $isMovingDown ? 'File returned successfully' : 'File received successfully with your note';
             if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['success' => true, 'message' => $message], 200);
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'file_id' => $fileId,
+                    'can_edit_status' => $currentUser->hasPermission('edit_file_statuses')
+                ], 200);
             }
             return redirect('/files')->with('toast_success', $message);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

@@ -3,504 +3,545 @@
 @section('title', 'Files - File Tracking System')
 
 @section('page-script')
-<script src="{{asset('public/assets/js/ui-toasts.js')}}"></script>
-<!-- HTML5 QR Code Scanner Library -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="{{asset('public/assets/js/ui-toasts.js')}}"></script>
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 @endsection
 
 @section('content')
-<style>
-  /* File index: mobile responsive */
-  @media (max-width: 575.98px) {
-    .files-index-card .card { overflow: hidden; }
-    .files-index-card .card-header { flex-direction: column; align-items: stretch !important; gap: 0.75rem; }
-    .files-index-card .table-responsive { min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .files-index-card .table { margin-bottom: 0; }
-  }
-</style>
+  <style>
+    /* File index: mobile responsive */
+    @media (max-width: 575.98px) {
+      .files-index-card .card {
+        overflow: hidden;
+      }
 
-<!-- Toast with Placements -->
-<div class="bs-toast toast toast-placement-ex m-2" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="2000">
-  <div class="toast-header">
-    <i class='bx bx-bell me-2'></i>
-    <div class="me-auto fw-medium">FTS</div>
-    <small>Now</small>
-    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-  </div>
-  <div class="toast-body">
-    @if(Session::has('toast_success'))
-      {{ Session::get('toast_success') }}
-    @endif
-    @if(Session::has('toast_error'))
-      {{ Session::get('toast_error') }}
-    @endif
-  </div>
-</div>
-<!-- Toast with Placements -->
+      .files-index-card .card-header {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.75rem;
+      }
 
-<h4 class="py-3 mb-4">
-  <span class="text-muted fw-light">File Tracking /</span> All Files
-</h4>
+      .files-index-card .table-responsive {
+        min-width: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
 
-<div class="card files-index-card">
-  @if(isset($pendingFilesForUser) && $pendingFilesForUser > 0)
-    <div class="alert alert-warning alert-dismissible fade show m-3 mb-0" role="alert">
-      <h6 class="alert-heading mb-1">
-        <i class="bx bx-bell bx-tada me-1"></i> You have {{ $pendingFilesForUser }} pending {{ $pendingFilesForUser == 1 ? 'file' : 'files' }} assigned to you!
-      </h6>
-      <p class="mb-0 small">These files are waiting for your review. Scroll down to see them in the table below.</p>
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      .files-index-card .table {
+        margin-bottom: 0;
+      }
+    }
+  </style>
+
+  <!-- Toast with Placements -->
+  <div class="bs-toast toast toast-placement-ex m-2" role="alert" aria-live="assertive" aria-atomic="true"
+    data-bs-delay="2000">
+    <div class="toast-header">
+      <i class='bx bx-bell me-2'></i>
+      <div class="me-auto fw-medium">FTS</div>
+      <small>Now</small>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
-  @endif
-  
-  <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 py-3">
-    <h5 class="mb-0">File Records</h5>
-    <div class="d-flex flex-column flex-sm-row gap-2">
-      <button type="button" class="btn btn-success w-100 flex-grow-0" onclick="openQrScanner()" title="Scan QR Code to Receive File">
-        <i class="bx bx-scan me-1"></i> Scan QR Code
-      </button>
-      @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
-      <a href="{{ url('/files/create') }}" class="btn btn-primary w-100 flex-grow-0">
-        <i class="bx bx-plus me-1"></i> Add New File
-      </a>
+    <div class="toast-body">
+      @if(Session::has('toast_success'))
+        {{ Session::get('toast_success') }}
+      @endif
+      @if(Session::has('toast_error'))
+        {{ Session::get('toast_error') }}
       @endif
     </div>
   </div>
-  <div class="table-responsive text-nowrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>File No</th>
-          <th>Subject</th>
-          <th>PUC Proposal</th>
-          <th>Handover Note</th>
-          <th>Created By</th>
-          <th>Status</th>
-          <th>Assigned To</th>
-          <th>Sent To</th>
-          <th>Image</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @forelse ($files as $file)
-        <tr>
-          <td>
-            {{ $file->file_no }}
-            @php
-              // Show "Review from {role}" if current user received this file
-              $latestMovement = $file->movements->last();
-              $showReviewMessage = false;
-              $senderRoleName = '';
-              
-              if ($latestMovement && $latestMovement->receiver_id == auth()->id() && !$latestMovement->file_reject) {
-                $showReviewMessage = true;
-                $sender = \App\Models\User::with('role')->find($latestMovement->sender_id);
-                $senderRoleName = $sender && $sender->role ? $sender->role->name : 'Unknown';
-              }
-            @endphp
-            @if($showReviewMessage)
-              <br><small class="text-primary"><i class="bx bx-info-circle me-1"></i>Review from {{ $senderRoleName }}</small>
-            @endif
-          </td>
-          <td>{{ $file->subject }}</td>
-          <td>{{ Str::limit($file->puc_proposal, 50) }}</td>
-          <td>
-            @if($file->handover_note)
-              <span class="badge bg-label-info cursor-pointer" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $file->handover_note }}">
-                <i class="bx bx-note me-1"></i> View Note
-              </span>
-            @else
-              <span class="text-muted">-</span>
-            @endif
-          </td>
-          <td>{{ $file->creator->name ?? 'N/A' }}</td>
-          
-          <td>
-            @if (auth()->user()->role->name == 'HCJ' || auth()->user()->role->name == 'Admin')
-              <span onclick="openStatusModal({{ $file->id }})" class="cursor-pointer badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
-                {{ ucfirst($file->status) }}
-              </span>
-            @else
-              <span class="cursor-pointer badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
-                {{ ucfirst($file->status) }}
-              </span>
-            @endif
-          </td>
+  <!-- Toast with Placements -->
 
-          <td>
-            @php
-              $latestMovement = $file->movements->last();
-            @endphp
+  <h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">File Tracking /</span> All Files
+  </h4>
 
-            @if ($latestMovement && $latestMovement->receiver)
-              {{ $latestMovement->receiver->name }} ({{ $latestMovement->receiver->role->name ?? 'No Role' }})
-              <span class="badge rounded-pill bg-danger">{{$latestMovement->file_reject == 1 ? "Rejected" : ""}}</span>
-            @else
-              <span class="text-muted">Unassigned</span>
-            @endif
-          </td>
-          <td>
+  <div class="card files-index-card">
+    @if(isset($pendingFilesForUser) && $pendingFilesForUser > 0)
+      <div class="alert alert-warning alert-dismissible fade show m-3 mb-0" role="alert">
+        <h6 class="alert-heading mb-1">
+          <i class="bx bx-bell bx-tada me-1"></i> You have {{ $pendingFilesForUser }} pending
+          {{ $pendingFilesForUser == 1 ? 'file' : 'files' }} assigned to you!
+        </h6>
+        <p class="mb-0 small">These files are waiting for your review. Scroll down to see them in the table below.</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    @endif
+
+    <div
+      class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 py-3">
+      <h5 class="mb-0">File Records</h5>
+      <div class="d-flex flex-column flex-sm-row gap-2">
+        <button type="button" class="btn btn-success w-100 flex-grow-0" onclick="openQrScanner()"
+          title="Scan QR Code to Receive File">
+          <i class="bx bx-scan me-1"></i> Scan QR Code
+        </button>
+        @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
+          <a href="{{ url('/files/create') }}" class="btn btn-primary w-100 flex-grow-0">
+            <i class="bx bx-plus me-1"></i> Add New File
+          </a>
+        @endif
+      </div>
+    </div>
+    <div class="table-responsive text-nowrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>File No</th>
+            <th>Subject</th>
+            <th>PUC Proposal</th>
+            <th>Handover Note</th>
+            <th>Created By</th>
+            <th>Status</th>
+            <th>Assigned To</th>
+            <th>Sent To</th>
+            <th>Image</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse ($files as $file)
+            <tr>
+              <td>
+                {{ $file->file_no }}
                 @php
-                    $sender = null;
-                    if ($latestMovement) {
-                        $sender = \App\Models\User::find($latestMovement->sender_id);
-                    }
+                  // Show "Review from {role}" if current user received this file
+                  $latestMovement = $file->movements->last();
+                  $showReviewMessage = false;
+                  $senderRoleName = '';
+
+                  if ($latestMovement && $latestMovement->receiver_id == auth()->id() && !$latestMovement->file_reject) {
+                    $showReviewMessage = true;
+                    $sender = \App\Models\User::with('role')->find($latestMovement->sender_id);
+                    $senderRoleName = $sender && $sender->role ? $sender->role->name : 'Unknown';
+                  }
                 @endphp
-            
-                @if ($file->status == 'closed')
-                    <span class="text-muted">File Closed</span>
-                @else
-                    <a href="{{ url('/files/' . $file->id . '/print') }}" target="_blank" class="btn btn-secondary btn-sm" title="Print file with QR code">
-                        <i class="bx bx-printer me-1"></i> Print
-                    </a>
-                    {{-- Show QR Code button for all files --}}
-                    <button class="btn btn-info btn-sm" onclick="showQrCodeModal({{ $file->id }})" title="Show QR Code">
-                        <i class="bx bx-qr-scan me-1"></i> QR Code
-                    </button>
+                @if($showReviewMessage)
+                  <br><small class="text-primary"><i class="bx bx-info-circle me-1"></i>Review from
+                    {{ $senderRoleName }}</small>
                 @endif
-          </td>
-          <td>
-            @if ($file->file_image)
-              <img width="100" class="img-fluid border rounded" src="{{ asset('/public/' . $file->file_image) }}" alt="Img">
-            @else
-              <span class="text-muted">None</span>
-            @endif
-          </td>
-          <td>
-            <a class="dropdown-item cursor-pointer" onclick="openViewModal({{ $file }})">
-              <i class="bx bx-show-alt me-1"></i> View
-            </a>
-              @php
-                $isAdmin = strtolower(auth()->user()->role->name) == 'admin';
-                $isCreator = $file->created_by == auth()->id();
-                $fileInProcess = $file->movements()->where('file_reject', false)->exists();
-                $canEditDelete = $isAdmin || ($isCreator && !$fileInProcess);
-              @endphp
-              @if ($canEditDelete)
-              <a class="dropdown-item" href="{{ url('/files/' . $file->id . '/edit') }}">
-                <i class="bx bx-edit-alt me-1"></i> Edit
-              </a>
-              
-              <form action="{{ url('/files/' . $file->id) }}" method="POST">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="dropdown-item" onclick="return confirm('Are you sure you want to delete this file?')">
-                  <i class="bx bx-trash me-1"></i> Delete
-                </button>
-              </form>
-              @endif
-          </td>
-        </tr>
-        @empty
-        <tr>
-          <td colspan="8" class="text-center">No files found.</td>
-        </tr>
-        @endforelse
-      </tbody>
-    </table>
-  </div>
-  <div class="card-footer">
-    <div class="d-flex justify-content-center">
-      {{ $files->links() }}
+              </td>
+              <td>{{ $file->subject }}</td>
+              <td>{{ Str::limit($file->puc_proposal, 50) }}</td>
+              <td>
+                @if($file->handover_note)
+                  <span class="badge bg-label-info cursor-pointer" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="{{ $file->handover_note }}">
+                    <i class="bx bx-note me-1"></i> View Note
+                  </span>
+                @else
+                  <span class="text-muted">-</span>
+                @endif
+              </td>
+              <td>{{ $file->creator->name ?? 'N/A' }}</td>
+
+              <td>
+                @php
+                  $currentHolder = $file->getCurrentHolder();
+                  $canChangeStatus = hasPermission('edit_file_statuses') &&
+                    $currentHolder &&
+                    $currentHolder->id === auth()->id();
+                @endphp
+
+                @if ($canChangeStatus)
+                  <span onclick="openStatusModal({{ $file->id }})"
+                    class="cursor-pointer badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
+                    {{ ucfirst($file->status) }}
+                  </span>
+                @else
+                  <span
+                    class="badge bg-label-{{ $file->status == 'pending' ? 'warning' : ($file->status == 'closed' ? 'danger' : 'success') }}">
+                    {{ ucfirst($file->status) }}
+                  </span>
+                @endif
+              </td>
+
+              <td>
+                @php
+                  $latestMovement = $file->movements->last();
+                @endphp
+
+                @if ($latestMovement && $latestMovement->receiver)
+                  {{ $latestMovement->receiver->name }} ({{ $latestMovement->receiver->role->name ?? 'No Role' }})
+                  <span class="badge rounded-pill bg-danger">{{$latestMovement->file_reject == 1 ? "Rejected" : ""}}</span>
+                @else
+                  <span class="text-muted">Unassigned</span>
+                @endif
+              </td>
+              <td>
+                @php
+                  $sender = null;
+                  if ($latestMovement) {
+                    $sender = \App\Models\User::find($latestMovement->sender_id);
+                  }
+                @endphp
+
+                @if ($file->status == 'closed')
+                  <span class="text-muted">File Closed</span>
+                @else
+                  <a href="{{ url('/files/' . $file->id . '/print') }}" target="_blank" class="btn btn-secondary btn-sm"
+                    title="Print file with QR code">
+                    <i class="bx bx-printer me-1"></i> Print
+                  </a>
+                  {{-- Show QR Code button for all files --}}
+                  <button class="btn btn-info btn-sm" onclick="showQrCodeModal({{ $file->id }})" title="Show QR Code">
+                    <i class="bx bx-qr-scan me-1"></i> QR Code
+                  </button>
+                @endif
+              </td>
+              <td>
+                @if ($file->file_image)
+                  <img width="100" class="img-fluid border rounded" src="{{ asset('/public/' . $file->file_image) }}"
+                    alt="Img">
+                @else
+                  <span class="text-muted">None</span>
+                @endif
+              </td>
+              <td>
+                <a class="dropdown-item cursor-pointer" onclick="openViewModal({{ $file }})">
+                  <i class="bx bx-show-alt me-1"></i> View
+                </a>
+                @php
+                  $isAdmin = strtolower(auth()->user()->role->name) == 'admin';
+                  $isCreator = $file->created_by == auth()->id();
+                  $latestMov = $file->movements->last();
+
+                  // Creator can edit if: no movements, OR status is reopened, OR file is with them
+                  $fileIsWithCreator = false;
+                  if (!$latestMov) {
+                    $fileIsWithCreator = true;
+                  } elseif ($file->status === 'reopened') {
+                    $fileIsWithCreator = true;
+                  } elseif ($latestMov->receiver_id == auth()->id()) {
+                    $fileIsWithCreator = true;
+                  }
+
+                  $canEditDelete = $isAdmin || ($isCreator && $fileIsWithCreator);
+                @endphp
+                @if ($canEditDelete)
+                  <a class="dropdown-item" href="{{ url('/files/' . $file->id . '/edit') }}">
+                    <i class="bx bx-edit-alt me-1"></i> Edit
+                  </a>
+
+                  <form action="{{ url('/files/' . $file->id) }}" method="POST">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="dropdown-item"
+                      onclick="return confirm('Are you sure you want to delete this file?')">
+                      <i class="bx bx-trash me-1"></i> Delete
+                    </button>
+                  </form>
+                @endif
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="8" class="text-center">No files found.</td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer">
+      <div class="d-flex justify-content-center">
+        {{ $files->links() }}
+      </div>
     </div>
   </div>
-</div>
 
-<div class="modal fade" id="sendToModal" tabindex="-1"  >
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Send To</h5>  
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <div class="modal fade" id="sendToModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Send To</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form action="{{ url('/file-movements') }}" method="POST">
+            @csrf
+            <input type="hidden" name="file_id" id="file_id" value="" readonly>
+            <input type="hidden" name="file_reject" id="file_reject" value="0">
+            <div class="mb-3">
+              <label for="receiver_id" class="form-label">Receiver</label>
+              <select class="form-select" id="receiver_id" name="receiver_id" onchange="checkReceiverRole()">
+                @foreach ($users as $user)
+                  <option value="{{ $user->id }}" data-role="{{ $user->role->name }}">
+                    {{ $user->name }} ({{ $user->role->name }})
+                  </option>
+                @endforeach
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="file_note" class="form-label">File Note</label>
+              <textarea class="form-control" id="file_note" name="file_note" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Send</button>
+            <button type="submit" id="rejectBtn" class="btn btn-danger" style="display: none;">Return this file</button>
+          </form>
+        </div>
       </div>
-      <div class="modal-body">
-        <form action="{{ url('/file-movements') }}" method="POST">
-          @csrf
-          <input type="hidden" name="file_id" id="file_id" value="" readonly>
-          <input type="hidden" name="file_reject" id="file_reject" value="0"> 
+    </div>
+  </div>
+
+  <div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Status</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form action="{{ url('/file-statuses') }}" method="POST">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="file_id" id="file_id_status" value="" readonly>
+            <div class="mb-3">
+              <label for="status" class="form-label">Status</label>
+              <select class="form-select" id="status" name="status">
+                <option value="pending">Pending</option>
+                <option value="closed">Closed</option>
+                <option value="reopened">Reopened</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Update</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">File Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="file-content"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="qrCodeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">File QR Code</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="mb-3">Scan this QR code to receive the file</p>
+          <div id="qr-code-container" class="d-flex justify-content-center align-items-center mb-3">
+            <img id="qr-code-image" src="" alt="QR Code" class="img-fluid" style="max-width: 300px;">
+          </div>
+          <p class="text-muted small mb-3">Share this QR code with others to transfer the file</p>
+
+          {{-- Download Section - commented out for now
+          <div class="border-top pt-3 mt-3">
+            <p class="mb-2 fw-semibold">Download QR Code</p>
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+              <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('svg')">
+                <i class="bx bx-download me-1"></i> Download SVG
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('png')">
+                <i class="bx bx-download me-1"></i> Download PNG
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('jpg')">
+                <i class="bx bx-download me-1"></i> Download JPG
+              </button>
+            </div>
+          </div>
+          --}}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="qrScannerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered ">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Scan QR Code to Receive File</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          {{-- Manual Upload Option - commented out for now
           <div class="mb-3">
-            <label for="receiver_id" class="form-label">Receiver</label>
-            <select class="form-select" id="receiver_id" name="receiver_id"  onchange="checkReceiverRole()">
-              @foreach ($users as $user)
-              <option value="{{ $user->id }}" data-role="{{ $user->role->name }}">
-                {{ $user->name }} ({{ $user->role->name }})
-              </option>
-              @endforeach
-            </select>
+            <label for="qr-image-upload" class="btn btn-outline-primary btn-sm">
+              <i class="bx bx-upload me-1"></i> Upload QR Code Image
+            </label>
+            <input type="file" id="qr-image-upload" accept="image/*" style="display: none;" />
           </div>
+          <div class="text-muted small mb-3">OR</div>
+          --}}
+          <p class="mb-3">Position the QR code within the camera frame</p>
+          <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 0 auto;"></div>
+          <div id="qr-reader-results" class="mt-3"></div>
+          <div id="scanning-status" class="alert alert-info mt-3" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="switch-camera-btn" onclick="switchCamera()"
+            style="display: none;">
+            <i class="bx bx-camera me-1"></i> Switch Camera
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="stopQrScanner()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Note Input Modal (shown BEFORE QR scan) -->
+  <div class="modal fade" id="qrNoteModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Note Before Scanning</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3 text-muted">Please enter your note before scanning the QR code. This note will be saved when you
+            receive the file.</p>
           <div class="mb-3">
-            <label for="file_note" class="form-label">File Note</label>
-            <textarea class="form-control" id="file_note" name="file_note" rows="3"></textarea>
+            <label for="receiver-note" class="form-label">Your Note <span class="text-danger">*</span></label>
+            <textarea id="receiver-note" class="form-control" rows="4"
+              placeholder="Enter your note about receiving this file (required)" required></textarea>
+            <small class="text-muted">This note will be saved with the file movement record</small>
           </div>
-          <button type="submit" class="btn btn-primary">Send</button>
-          <button type="submit" id="rejectBtn" class="btn btn-danger" style="display: none;">Return this file</button>
-        </form>
-      </div>  
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="statusModal" tabindex="-1"  >
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Status</h5> 
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form action="{{ url('/file-statuses') }}" method="POST">
-          @csrf
-          @method('PUT')
-          <input type="hidden" name="file_id" id="file_id_status" value="" readonly>
-          <div class="mb-3">
-            <label for="status" class="form-label">Status</label>
-            <select class="form-select" id="status" name="status">
-              <option value="pending">Pending</option>
-              <option value="closed">Closed</option>
-              <option value="reopened">Reopened</option>
-            </select>
-          </div>
-          <button type="submit" class="btn btn-primary">Update</button>
-        </form>
-      </div>  
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="viewModal" tabindex="-1"  >
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">File Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div id="file-content"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="qrCodeModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">File QR Code</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        <p class="mb-3">Scan this QR code to receive the file</p>
-        <div id="qr-code-container" class="d-flex justify-content-center align-items-center mb-3">
-          <img id="qr-code-image" src="" alt="QR Code" class="img-fluid" style="max-width: 300px;">
+          <div id="note-error" class="alert alert-danger" style="display: none;"></div>
         </div>
-        <p class="text-muted small mb-3">Share this QR code with others to transfer the file</p>
-        
-        {{-- Download Section - commented out for now
-        <div class="border-top pt-3 mt-3">
-          <p class="mb-2 fw-semibold">Download QR Code</p>
-          <div class="d-flex gap-2 justify-content-center flex-wrap">
-            <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('svg')">
-              <i class="bx bx-download me-1"></i> Download SVG
-            </button>
-            <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('png')">
-              <i class="bx bx-download me-1"></i> Download PNG
-            </button>
-            <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadQrCode('jpg')">
-              <i class="bx bx-download me-1"></i> Download JPG
-            </button>
-          </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="proceedToScan()">
+            <i class="bx bx-scan me-1"></i> Proceed to Scan
+          </button>
         </div>
-        --}}
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
-</div>
-
-<div class="modal fade" id="qrScannerModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered ">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Scan QR Code to Receive File</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        {{-- Manual Upload Option - commented out for now
-        <div class="mb-3">
-          <label for="qr-image-upload" class="btn btn-outline-primary btn-sm">
-            <i class="bx bx-upload me-1"></i> Upload QR Code Image
-          </label>
-          <input type="file" id="qr-image-upload" accept="image/*" style="display: none;" />
-        </div>
-        <div class="text-muted small mb-3">OR</div>
-        --}}
-        <p class="mb-3">Position the QR code within the camera frame</p>
-        <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 0 auto;"></div>
-        <div id="qr-reader-results" class="mt-3"></div>
-        <div id="scanning-status" class="alert alert-info mt-3" style="display: none;"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="switch-camera-btn" onclick="switchCamera()" style="display: none;">
-          <i class="bx bx-camera me-1"></i> Switch Camera
-        </button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="stopQrScanner()">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Note Input Modal (shown BEFORE QR scan) -->
-<div class="modal fade" id="qrNoteModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Add Note Before Scanning</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p class="mb-3 text-muted">Please enter your note before scanning the QR code. This note will be saved when you receive the file.</p>
-        <div class="mb-3">
-          <label for="receiver-note" class="form-label">Your Note <span class="text-danger">*</span></label>
-          <textarea 
-            id="receiver-note" 
-            class="form-control" 
-            rows="4" 
-            placeholder="Enter your note about receiving this file (required)"
-            required
-          ></textarea>
-          <small class="text-muted">This note will be saved with the file movement record</small>
-        </div>
-        <div id="note-error" class="alert alert-danger" style="display: none;"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="proceedToScan()">
-          <i class="bx bx-scan me-1"></i> Proceed to Scan
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
 
 
-<script>
-// Global variables for QR scanner
-let html5QrCode = null;
-let isScanning = false;
-let availableCameras = [];
-let currentCameraIndex = 0;
-let currentCameraId = null;
-let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
-let receiverNote = null; // Store receiver's note entered before scanning
+  <script>
+    // Global variables for QR scanner
+    let html5QrCode = null;
+    let isScanning = false;
+    let availableCameras = [];
+    let currentCameraIndex = 0;
+    let currentCameraId = null;
+    let currentFacingMode = 'user'; // 'user' = front, 'environment' = back
+    let receiverNote = null; // Store receiver's note entered before scanning
 
-// Wait for jQuery to be loaded before executing jQuery-dependent code
-(function() {
-  'use strict';
-  
-  function waitForJQuery(callback) {
-    if (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') {
-      callback(window.jQuery || window.$);
-    } else {
-      setTimeout(function() {
-        waitForJQuery(callback);
-      }, 50);
-    }
-  }
-  
-  // Initialize when DOM and jQuery are ready
-  waitForJQuery(function($) {
-    // Make $ available globally
-    window.$ = window.$ || $;
-    window.jQuery = window.jQuery || $;
-    
-    // Define functions that use jQuery
-    window.openSendToModal = function(fileId) {
-  $('#sendToModal').modal('show');
-  $('#file_id').val(fileId);
-  $('#receiver_id').val('');
-  $('#file_note').val('');
-  $('#file_reject').val(0);
-  $('#sendBtn').show();
-  $('#rejectBtn').hide();
-    };
+    // Wait for jQuery to be loaded before executing jQuery-dependent code
+    (function () {
+      'use strict';
 
-
-    window.checkReceiverRole = function() {
-  const currentUserRole = "{{ auth()->user()->role->name }}";
-  const receiverSelect = document.getElementById("receiver_id");
-  const selectedOption = receiverSelect.options[receiverSelect.selectedIndex];
-  const receiverRole = selectedOption.getAttribute("data-role");
-
-  const roleHierarchy = [
-    'Junior Clerk',
-    'Assistant Registrar',
-    'Deputy Registrar',
-    'Additional Registrar',
-    'DG',
-    'Registrar',
-    'HCJ'
-  ];
-
-  const currentIndex = roleHierarchy.indexOf(currentUserRole);
-  const receiverIndex = roleHierarchy.indexOf(receiverRole);
-
-  if (receiverIndex > currentIndex) {
-    $('#file_reject').val(0);
-    $('#sendBtn').show();
-    $('#rejectBtn').hide();
-  } else if (receiverIndex < currentIndex) {
-    $('#file_reject').val(1);
-    $('#sendBtn').hide();
-    $('#rejectBtn').show();
-  } else {
-    $('#file_reject').val(0);
-    $('#sendBtn').show();
-    $('#rejectBtn').hide();
-  }
-    };
-
-    window.openStatusModal = function(fileId) {
-  $('#statusModal').modal('show');
-  $('#statusModal #file_id_status').val(fileId);
-    };
-
-    window.showQrCodeModal = function(fileId) {
-      // Store fileId globally for download function
-      window.currentQrFileId = fileId;
-      
-      // Add cache-busting parameter to ensure fresh QR code (use SVG for display)
-      const timestamp = new Date().getTime();
-      const qrCodeUrl = "{{ url('/files') }}/" + fileId + "/qr-code?format=svg&t=" + timestamp;
-      $('#qr-code-image').attr('src', qrCodeUrl);
-      $('#qrCodeModal').modal('show');
-      
-      // Handle image load errors
-      $('#qr-code-image').off('error').on('error', function() {
-        $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5RUiBDb2RlIExvYWRpbmcuLi48L3RleHQ+PC9zdmc+');
-        alert('Failed to load QR code. Please try again.');
-      });
-    };
-    
-    // Download QR Code in specified format - commented out for now
-    /*
-    window.downloadQrCode = function(format) {
-      if (!window.currentQrFileId) {
-        alert('File ID not found. Please try again.');
-        return;
+      function waitForJQuery(callback) {
+        if (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') {
+          callback(window.jQuery || window.$);
+        } else {
+          setTimeout(function () {
+            waitForJQuery(callback);
+          }, 50);
+        }
       }
-      
-      const qrImage = document.getElementById('qr-code-image');
-      if (!qrImage || !qrImage.src) {
-        alert('QR code image not loaded. Please wait and try again.');
-        return;
-      }
-      
-      // For SVG format, download directly
-      if (format === 'svg') {
-        const downloadUrl = "{{ url('/files') }}/" + window.currentQrFileId + "/qr-code?format=svg&download=1";
+
+      // Initialize when DOM and jQuery are ready
+      waitForJQuery(function ($) {
+        // Make $ available globally
+        window.$ = window.$ || $;
+        window.jQuery = window.jQuery || $;
+
+        // Define functions that use jQuery
+        window.openSendToModal = function (fileId) {
+          $('#sendToModal').modal('show');
+          $('#file_id').val(fileId);
+          $('#receiver_id').val('');
+          $('#file_note').val('');
+          $('#file_reject').val(0);
+          $('#sendBtn').show();
+          $('#rejectBtn').hide();
+        };
+
+
+        window.checkReceiverRole = function () {
+          const currentUserRole = "{{ auth()->user()->role->name }}";
+          const receiverSelect = document.getElementById("receiver_id");
+          const selectedOption = receiverSelect.options[receiverSelect.selectedIndex];
+          const receiverRole = selectedOption.getAttribute("data-role");
+
+          const roleHierarchy = [
+            'Junior Clerk',
+            'Assistant Registrar',
+            'Deputy Registrar',
+            'Additional Registrar',
+            'DG',
+            'Registrar',
+            'HCJ'
+          ];
+
+          const currentIndex = roleHierarchy.indexOf(currentUserRole);
+          const receiverIndex = roleHierarchy.indexOf(receiverRole);
+
+          if (receiverIndex > currentIndex) {
+            $('#file_reject').val(0);
+            $('#sendBtn').show();
+            $('#rejectBtn').hide();
+          } else if (receiverIndex < currentIndex) {
+            $('#file_reject').val(1);
+            $('#sendBtn').hide();
+            $('#rejectBtn').show();
+          } else {
+            $('#file_reject').val(0);
+            $('#sendBtn').show();
+            $('#rejectBtn').hide();
+          }
+        };
+
+        window.openStatusModal = function (fileId) {
+          $('#statusModal').modal('show');
+          $('#statusModal #file_id_status').val(fileId);
+        };
+
+        window.showQrCodeModal = function (fileId) {
+          // Store fileId globally for download function
+          window.currentQrFileId = fileId;
+
+          // Add cache-busting parameter to ensure fresh QR code (use SVG for display)
+          const timestamp = new Date().getTime();
+          const qrCodeUrl = "{{ url('/files') }}/" + fileId + "/qr-code?format=svg&t=" + timestamp;
+          $('#qr-code-image').attr('src', qrCodeUrl);
+          $('#qrCodeModal').modal('show');
+
+          // Handle image load errors
+          $('#qr-code-image').off('error').on('error', function () {
+            $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5RUiBDb2RlIExvYWRpbmcuLi48L3RleHQ+PC9zdmc+');
+            alert('Failed to load QR code. Please try again.');
+          });
+        };
+
+                        // Download QR Code in specified format - commented out for now
+                        /*
+                        window.downloadQrCode = function(format) {
+                          if (!window.currentQrFileId) {
+                            alert('File ID not found. Please try again.');
+                            return;
+                          }
+
+                          const qrImage = document.getElementById('qr-code-image');
+                          if (!qrImage || !qrImage.src) {
+                            alert('QR code image not loaded. Please wait and try again.');
+                            return;
+                          }
+
+                          // For SVG format, download directly
+                          if (format === 'svg') {
+                            const downloadUrl = "{{ url('/files') }}/" + window.currentQrFileId + "/qr - code ? format = svg & download=1";
         const link = document.createElement('a');
         link.href = downloadUrl;
         link.download = 'qr-code-file-' + window.currentQrFileId + '.svg';
@@ -509,12 +550,12 @@ let receiverNote = null; // Store receiver's note entered before scanning
         document.body.removeChild(link);
         return;
       }
-      
-      // For PNG and JPG, convert SVG to image using canvas
-      const img = new Image();
+
+                          // For PNG and JPG, convert SVG to image using canvas
+                          const img = new Image();
       img.crossOrigin = 'anonymous';
-      
-      img.onload = function() {
+
+      img.onload = function () {
         try {
           const canvas = document.createElement('canvas');
           canvas.width = 500;
@@ -529,7 +570,7 @@ let receiverNote = null; // Store receiver's note entered before scanning
             mimeType = 'image/jpeg';
             fileExtension = 'jpg';
           }
-          canvas.toBlob(function(blob) {
+          canvas.toBlob(function (blob) {
             if (!blob) {
               alert('Failed to convert QR code. Please try downloading as SVG instead.');
               return;
@@ -541,7 +582,7 @@ let receiverNote = null; // Store receiver's note entered before scanning
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            setTimeout(function() {
+            setTimeout(function () {
               URL.revokeObjectURL(url);
             }, 100);
           }, mimeType, 0.95);
@@ -550,728 +591,812 @@ let receiverNote = null; // Store receiver's note entered before scanning
           alert('Failed to convert QR code to ' + format.toUpperCase() + '. Please try downloading as SVG instead.');
         }
       };
-      
-      img.onerror = function() {
+
+      img.onerror = function () {
         alert('Failed to load QR code image. Please try again.');
       };
-      
+
       img.src = qrImage.src;
     };
+                        */
+
+                        // Modal close handler will be attached in DOMContentLoaded below
+                      });
+                    }) ();
+
+    // QR Scanner functions (don't require jQuery immediately) - variables already declared above
+    // Open note modal first, then scanner
+    window.openQrScanner = function () {
+      // Stop any existing scanner
+      stopQrScanner();
+
+      const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined')
+        ? (window.jQuery || window.$)
+        : null;
+
+      // Reset note and error
+      document.getElementById('receiver-note').value = '';
+      document.getElementById('note-error').style.display = 'none';
+      receiverNote = null;
+
+      // Show note modal first
+      if ($) {
+        $('#qrNoteModal').modal('show');
+      } else {
+        const noteModalEl = document.getElementById('qrNoteModal');
+        if (noteModalEl && typeof bootstrap !== 'undefined') {
+          const noteModal = new bootstrap.Modal(noteModalEl);
+          noteModal.show();
+        }
+      }
+    };
+
+    // Proceed to scan after note is entered
+    window.proceedToScan = function () {
+      const note = document.getElementById('receiver-note').value.trim();
+      const errorEl = document.getElementById('note-error');
+
+      // Validate note
+      if (!note) {
+        errorEl.textContent = 'Please enter a note before proceeding to scan.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      // Store the note
+      receiverNote = note;
+      errorEl.style.display = 'none';
+
+      const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined')
+        ? (window.jQuery || window.$)
+        : null;
+
+      // Close note modal
+      if ($) {
+        $('#qrNoteModal').modal('hide');
+      } else {
+        const noteModalEl = document.getElementById('qrNoteModal');
+        if (noteModalEl) {
+          const noteModal = bootstrap.Modal.getInstance(noteModalEl);
+          if (noteModal) noteModal.hide();
+        }
+      }
+
+      // Open scanner modal after a short delay
+      setTimeout(() => {
+        if ($) {
+          // Clear previous results
+          $('#qr-reader-results').html('');
+          $('#scanning-status').hide().html('');
+
+          // Show modal
+          $('#qrScannerModal').modal('show');
+
+          // Initialize scanner after modal is fully shown
+          $('#qrScannerModal').off('shown.bs.modal').on('shown.bs.modal', function () {
+            startQrScanner();
+          });
+        } else {
+          // Fallback - use vanilla JS with Bootstrap
+          const resultsEl = document.getElementById('qr-reader-results');
+          const statusEl = document.getElementById('scanning-status');
+          if (resultsEl) resultsEl.innerHTML = '';
+          if (statusEl) {
+            statusEl.innerHTML = '';
+            statusEl.style.display = 'none';
+          }
+
+          const modalEl = document.getElementById('qrScannerModal');
+          if (modalEl && typeof bootstrap !== 'undefined') {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+            modalEl.addEventListener('shown.bs.modal', function () {
+              startQrScanner();
+            }, { once: true });
+          }
+        }
+      }, 300);
+    };
+
+    window.startQrScanner = async function (cameraIdToUse = null, facingModeToUse = null) {
+      if (isScanning && !cameraIdToUse && !facingModeToUse) {
+        return;
+      }
+
+      const readerElementId = "qr-reader";
+
+      // If switching cameras, stop current scanner first
+      if (isScanning && html5QrCode) {
+        try {
+          await html5QrCode.stop();
+          html5QrCode.clear();
+        } catch (e) {
+          console.warn('Error stopping scanner:', e);
+        }
+        isScanning = false;
+      }
+
+      // Clear previous content
+      const readerEl = document.getElementById(readerElementId);
+      if (!readerEl) return;
+      readerEl.innerHTML = '';
+
+      if (typeof Html5Qrcode === 'undefined') {
+        updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
+        return;
+      }
+
+      html5QrCode = new Html5Qrcode(readerElementId);
+
+      // Request camera permission first using getUserMedia
+      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Requesting camera access...');
+
+      try {
+        // Request permission by attempting to access camera
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Camera permission granted');
+      } catch (permissionErr) {
+        console.error('Camera permission error:', permissionErr);
+        let permissionMsg = 'Camera access denied. ';
+
+        if (permissionErr.name === 'NotAllowedError' || permissionErr.name === 'PermissionDeniedError') {
+          permissionMsg += 'Please click the camera icon in your browser\'s address bar and allow camera access, then try again.';
+        } else if (permissionErr.name === 'NotFoundError') {
+          permissionMsg += 'No camera found. Please check if a camera is connected to your device.';
+        } else if (permissionErr.name === 'NotReadableError' || permissionErr.name === 'TrackStartError') {
+          permissionMsg += 'Camera is being used by another application. Please close other apps using the camera and try again.';
+        } else {
+          permissionMsg += 'Please check your browser settings and allow camera access.';
+        }
+
+        updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + permissionMsg + '</span>');
+        isScanning = false;
+        return;
+      }
+
+      // Get available cameras if not already loaded
+      if (availableCameras.length === 0) {
+        updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Detecting cameras...');
+        try {
+          availableCameras = await Html5Qrcode.getCameras();
+          console.log('Available cameras:', availableCameras.map(d => d.label));
+
+          if (availableCameras.length === 0) {
+            updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> No cameras detected. Please ensure a camera is connected and try again.</span>');
+            isScanning = false;
+            return;
+          }
+
+          // Show switch button if more than one camera
+          const switchBtn = document.getElementById('switch-camera-btn');
+          if (switchBtn && availableCameras.length > 1) {
+            switchBtn.style.display = 'inline-block';
+          }
+        } catch (err) {
+          console.error('Could not enumerate cameras:', err);
+          updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> Failed to detect cameras. Please check camera connection and browser permissions.</span>');
+          availableCameras = [];
+          isScanning = false;
+          return;
+        }
+      }
+
+      // Determine which camera to use
+      let useCameraId = cameraIdToUse;
+      let useFacingMode = facingModeToUse;
+
+      if (!useCameraId && !useFacingMode) {
+        // First time starting - determine initial camera
+        if (availableCameras.length > 0) {
+          // Try to find front camera first
+          const frontCamera = availableCameras.find(device =>
+            device.label.toLowerCase().includes('front') ||
+            device.label.toLowerCase().includes('facing: user') ||
+            device.label.toLowerCase().includes('integrated')
+          );
+
+          useCameraId = frontCamera ? frontCamera.id : availableCameras[0].id;
+          currentCameraIndex = frontCamera ? availableCameras.indexOf(frontCamera) : 0;
+          currentCameraId = useCameraId;
+          currentFacingMode = null;
+        } else {
+          // No cameras enumerated, use facingMode
+          useFacingMode = currentFacingMode || 'user';
+          currentCameraId = null;
+        }
+      } else {
+        // Switching cameras
+        if (useCameraId) {
+          currentCameraId = useCameraId;
+          currentFacingMode = null;
+          currentCameraIndex = availableCameras.findIndex(cam => cam.id === useCameraId);
+        } else if (useFacingMode) {
+          currentFacingMode = useFacingMode;
+          currentCameraId = null;
+        }
+      }
+
+      // Configuration for scanning
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      };
+
+      let startPromise = null;
+
+      // Start the camera
+      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Starting camera...');
+
+      try {
+        if (useCameraId) {
+          console.log('Starting with camera deviceId:', useCameraId);
+          startPromise = html5QrCode.start(
+            { deviceId: { exact: useCameraId } },
+            config,
+            (decodedText, decodedResult) => {
+              handleScannedQrCode(decodedText);
+            },
+            (errorMessage) => {
+              // Ignore scan errors - just continue scanning
+              // These are normal "no QR code found" messages
+            }
+          );
+        } else if (useFacingMode) {
+          console.log('Starting with facingMode:', useFacingMode);
+          startPromise = html5QrCode.start(
+            { facingMode: useFacingMode },
+            config,
+            (decodedText, decodedResult) => {
+              handleScannedQrCode(decodedText);
+            },
+            (errorMessage) => {
+              // Ignore scan errors - just continue scanning
+              // These are normal "no QR code found" messages
+            }
+          );
+        } else {
+          throw new Error('No camera selected');
+        }
+
+        await startPromise;
+        isScanning = true;
+        const selectedCamera = availableCameras.find(c => c.id === useCameraId);
+        const cameraLabel = selectedCamera
+          ? selectedCamera.label
+          : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
+        updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.</span>');
+      } catch (err) {
+        console.error('Failed to start scanner:', err);
+        let errorMsg = 'Failed to start camera. ';
+
+        const errMsg = err && err.message ? err.message : String(err);
+        const errName = err && err.name ? err.name : '';
+
+        if (errName === 'NotAllowedError' || errMsg.includes('Permission denied') || errMsg.includes('NotAllowedError')) {
+          errorMsg += 'Camera permission denied. Please click the camera icon in your browser\'s address bar, allow camera access, then try again.';
+        } else if (errName === 'NotFoundError' || errMsg.includes('Requested device not found') || errMsg.includes('NotFoundError')) {
+          errorMsg += 'No camera found. Please check if a camera is connected and try again.';
+        } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source') || errMsg.includes('NotReadableError')) {
+          errorMsg += 'Camera is being used by another application. Please close other apps using the camera (Zoom, Teams, Skype, etc.) and try again.';
+        } else if (errMsg.includes('OverconstrainedError') || errMsg.includes('constraint')) {
+          errorMsg += 'Camera constraints not supported. Trying different camera settings...';
+          // Try with facingMode instead if deviceId failed
+          if (useCameraId && !useFacingMode) {
+            setTimeout(function () {
+              startQrScanner(null, 'environment');
+            }, 1000);
+            return;
+          }
+        } else {
+          errorMsg += 'Error: ' + errMsg + '. Please check camera connection and browser permissions.';
+        }
+
+        updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>');
+        isScanning = false;
+      }
+    };
+
+    // Switch between cameras
+    window.switchCamera = async function () {
+      if (!html5QrCode || !isScanning) {
+        return;
+      }
+
+      try {
+        if (availableCameras.length > 1) {
+          // Switch to next camera in list
+          currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
+          const nextCamera = availableCameras[currentCameraIndex];
+
+          updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Switching camera...');
+          await startQrScanner(nextCamera.id, null);
+        } else {
+          // Switch between front and back using facingMode
+          currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+          updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Switching camera...');
+          await startQrScanner(null, currentFacingMode);
+        }
+      } catch (err) {
+        console.error('Failed to switch camera:', err);
+        updateScanningStatus('<span class="text-danger">Failed to switch camera. Please try again.</span>');
+      }
+    };
+
+    // Manual QR code image upload handler - commented out for now
+    /*
+    document.addEventListener('DOMContentLoaded', function() {
+      const uploadInput = document.getElementById('qr-image-upload');
+      if (uploadInput) {
+        uploadInput.addEventListener('change', function(e) {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          if (!file.type.startsWith('image/')) {
+            updateScanningStatus('<span class="text-danger">Please select an image file (PNG, JPG, etc.)</span>');
+            return;
+          }
+
+          if (typeof Html5Qrcode === 'undefined') {
+            updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
+            return;
+          }
+
+          if (isScanning && html5QrCode) {
+            stopQrScanner();
+          }
+
+          const fileBasedInstance = new Html5Qrcode("qr-reader");
+
+          updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
+
+          fileBasedInstance.scanFile(file, true)
+            .then(decodedText => {
+              updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
+              fileBasedInstance.clear();
+              handleScannedQrCode(decodedText);
+              uploadInput.value = '';
+            })
+            .catch(err => {
+              console.error('Error scanning file:', err);
+              let errorMsg = 'Failed to read QR code from image. ';
+              if (err && err.message && err.message.includes('No QR code')) {
+                errorMsg += 'No QR code found in the image. Please ensure the image contains a valid QR code.';
+              } else {
+                errorMsg += 'Please try again with a clearer image.';
+              }
+              updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
+              fileBasedInstance.clear();
+              uploadInput.value = '';
+            });
+        });
+      }
+    });
     */
-    
-    // Modal close handler will be attached in DOMContentLoaded below
-  });
-})();
 
-// QR Scanner functions (don't require jQuery immediately) - variables already declared above
-// Open note modal first, then scanner
-window.openQrScanner = function() {
-  // Stop any existing scanner
-  stopQrScanner();
-  
-  const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
-    ? (window.jQuery || window.$) 
-    : null;
-  
-  // Reset note and error
-  document.getElementById('receiver-note').value = '';
-  document.getElementById('note-error').style.display = 'none';
-  receiverNote = null;
-  
-  // Show note modal first
-  if ($) {
-    $('#qrNoteModal').modal('show');
-  } else {
-    const noteModalEl = document.getElementById('qrNoteModal');
-    if (noteModalEl && typeof bootstrap !== 'undefined') {
-      const noteModal = new bootstrap.Modal(noteModalEl);
-      noteModal.show();
-    }
-  }
-};
+    // Helper function to update scanning status (works with or without jQuery)
+    window.updateScanningStatus = function (html, show = true) {
+      const statusElement = document.getElementById('scanning-status');
+      if (!statusElement) return;
 
-// Proceed to scan after note is entered
-window.proceedToScan = function() {
-  const note = document.getElementById('receiver-note').value.trim();
-  const errorEl = document.getElementById('note-error');
-  
-  // Validate note
-  if (!note) {
-    errorEl.textContent = 'Please enter a note before proceeding to scan.';
-    errorEl.style.display = 'block';
-    return;
-  }
-  
-  // Store the note
-  receiverNote = note;
-  errorEl.style.display = 'none';
-  
-  const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
-    ? (window.jQuery || window.$) 
-    : null;
-  
-  // Close note modal
-  if ($) {
-    $('#qrNoteModal').modal('hide');
-  } else {
-    const noteModalEl = document.getElementById('qrNoteModal');
-    if (noteModalEl) {
-      const noteModal = bootstrap.Modal.getInstance(noteModalEl);
-      if (noteModal) noteModal.hide();
-    }
-  }
-  
-  // Open scanner modal after a short delay
-  setTimeout(() => {
-    if ($) {
-      // Clear previous results
-      $('#qr-reader-results').html('');
-      $('#scanning-status').hide().html('');
-      
-      // Show modal
-      $('#qrScannerModal').modal('show');
-      
-      // Initialize scanner after modal is fully shown
-      $('#qrScannerModal').off('shown.bs.modal').on('shown.bs.modal', function() {
-        startQrScanner();
+      const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined')
+        ? (window.jQuery || window.$)
+        : null;
+
+      if ($) {
+        $(statusElement).html(html);
+        if (show) $(statusElement).show();
+      } else {
+        statusElement.innerHTML = html;
+        if (show) statusElement.style.display = 'block';
+        else statusElement.style.display = 'none';
+      }
+    };
+
+    window.handleScannedQrCode = function (decodedText) {
+      // Stop scanning immediately after successful scan
+      stopQrScanner();
+
+      // Extract file ID from the scanned URL
+      // Expected format: http://localhost/fts/file-movements/scan/{fileId}
+      const urlPattern = /\/file-movements\/scan\/(\d+)/;
+      const match = decodedText.match(urlPattern);
+
+      if (!match || !match[1]) {
+        const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined')
+          ? (window.jQuery || window.$)
+          : null;
+        const statusEl = document.getElementById('scanning-status');
+        const modalEl = document.getElementById('qrScannerModal');
+
+        if ($ && statusEl) {
+          $(statusEl).html('<span class="text-danger">Invalid QR code format. Please scan a valid file QR code.</span>').show();
+          setTimeout(() => {
+            $('#qrScannerModal').modal('hide');
+          }, 2000);
+        } else if (statusEl) {
+          statusEl.innerHTML = '<span class="text-danger">Invalid QR code format. Please scan a valid file QR code.</span>';
+          statusEl.style.display = 'block';
+          setTimeout(() => {
+            if (modalEl) {
+              const modal = bootstrap.Modal.getInstance(modalEl);
+              if (modal) modal.hide();
+            }
+          }, 2000);
+        }
+        return;
+      }
+
+      const fileId = match[1];
+
+      // Show processing status
+      const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined')
+        ? (window.jQuery || window.$)
+        : null;
+      const statusEl = document.getElementById('scanning-status');
+
+      if ($ && statusEl) {
+        $(statusEl).html('<span class="text-info"><i class="bx bx-loader-alt bx-spin me-1"></i> Processing file transfer...</span>').show();
+      } else if (statusEl) {
+        statusEl.innerHTML = '<span class="text-info"><i class="bx bx-loader-alt bx-spin me-1"></i> Processing file transfer...</span>';
+        statusEl.style.display = 'block';
+      }
+
+      // Make AJAX call to scan endpoint
+      // Use fetch API if jQuery not available, otherwise use jQuery
+      if (!$ || typeof $.ajax === 'undefined') {
+        // Use fetch API as fallback
+        const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
+        const scanUrl = "{{ url('/file-movements/scan') }}/" + fileId + (receiverNote ? "?file_note=" + encodeURIComponent(receiverNote) : "");
+        fetch(scanUrl, {
+          method: 'GET',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken || '',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        })
+          .then(response => {
+            if (!response.ok) {
+              return response.json().then(errData => {
+                console.error('QR Scan error:', errData);
+                throw new Error(errData.error || errData.message || 'Server error');
+              }).catch(() => {
+                throw new Error('HTTP error ' + response.status);
+              });
+            }
+            return response.json();
+          })
+          .then(data => {
+            console.log('QR Scan response:', data);
+
+            if (data.success || data.message) {
+              const message = data.message || 'File received successfully!';
+
+              // Check if user can edit file status
+              if (data.can_edit_status && data.file_id) {
+                // Show success message first
+                if (statusEl) {
+                  statusEl.innerHTML = '<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + '</span>';
+                  statusEl.style.display = 'block';
+                }
+
+                // Close scanner modal
+                const modalEl = document.getElementById('qrScannerModal');
+                if (modalEl) {
+                  const modal = bootstrap.Modal.getInstance(modalEl);
+                  if (modal) modal.hide();
+                }
+
+                // Ask if user wants to close the file
+                setTimeout(() => {
+                  if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                      title: 'File Received Successfully!',
+                      text: 'Do you want to close this file?',
+                      icon: 'question',
+                      showCancelButton: true,
+                      confirmButtonColor: '#28a745',
+                      cancelButtonColor: '#6c757d',
+                      confirmButtonText: '<i class="bx bx-check me-1"></i> Yes, Close File',
+                      cancelButtonText: '<i class="bx bx-x me-1"></i> No, Keep Open',
+                      allowOutsideClick: false
+                    }).then((result) => {
+                      if (result.isConfirmed) {
+                        // User wants to close the file
+                        fetch('{{ route("file-statuses.update") }}', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                          },
+                          body: JSON.stringify({
+                            file_id: data.file_id,
+                            status: 'closed'
+                          })
+                        })
+                          .then(response => {
+                            if (!response.ok) {
+                              throw new Error('Server error: ' + response.status);
+                            }
+                            return response.json();
+                          })
+                          .then(statusData => {
+                            Swal.fire({
+                              icon: 'success',
+                              title: 'File Closed!',
+                              text: 'The file has been marked as closed.',
+                              confirmButtonColor: '#696cff',
+                              timer: 2000
+                            }).then(() => {
+                              window.location.reload();
+                            });
+                          })
+                          .catch(error => {
+                            console.error('Error closing file:', error);
+                            Swal.fire({
+                              icon: 'error',
+                              title: 'Error',
+                              text: 'Failed to close the file. Please try again.',
+                              confirmButtonColor: '#696cff'
+                            }).then(() => {
+                              window.location.reload();
+                            });
+                          });
+                      } else {
+                        // User chose not to close, just reload
+                        window.location.reload();
+                      }
+                    });
+                  } else {
+                    // No SweetAlert, just reload
+                    window.location.reload();
+                  }
+                }, 500);
+              } else {
+                // User cannot edit status, just show success and reload
+                if (statusEl) {
+                  statusEl.innerHTML = '<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + ' Redirecting...</span>';
+                  statusEl.style.display = 'block';
+                }
+                setTimeout(() => {
+                  const modalEl = document.getElementById('qrScannerModal');
+                  if (modalEl) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                  }
+                  window.location.reload();
+                }, 1500);
+              }
+            } else if (data.error) {
+              throw new Error(data.error);
+            } else {
+              throw new Error('Unknown response format');
+            }
+          })
+          .catch(error => {
+            console.error('QR Scan error:', error);
+            const errorMsg = error.message || 'Failed to receive file. Please try again.';
+
+            // Close scanner modal
+            const modalEl = document.getElementById('qrScannerModal');
+            if (modalEl) {
+              const modal = bootstrap.Modal.getInstance(modalEl);
+              if (modal) modal.hide();
+            }
+
+            // Show error in SweetAlert for better formatting
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                icon: 'error',
+                title: 'File Transfer Failed',
+                html: errorMsg.replace(/\n/g, '<br>'),
+                confirmButtonColor: '#696cff',
+                confirmButtonText: 'OK, Got it!'
+              });
+            } else {
+              // Fallback to status display
+              if (statusEl) {
+                statusEl.innerHTML = '<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>';
+                statusEl.style.display = 'block';
+              }
+              setTimeout(() => {
+                if (modalEl) {
+                  const modal = bootstrap.Modal.getInstance(modalEl);
+                  if (modal) modal.hide();
+                }
+              }, 5000);
+            }
+          });
+        return;
+      }
+
+      const scanUrl = "{{ url('/file-movements/scan') }}/" + fileId + (receiverNote ? "?file_note=" + encodeURIComponent(receiverNote) : "");
+      $.ajax({
+        url: scanUrl,
+        method: 'GET',
+        headers: {
+          'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        success: function (response) {
+          // Success response
+          const message = response.message || 'File received successfully!';
+          $('#scanning-status').html('<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + ' Redirecting...</span>').show();
+
+          // Close modal and reload page after short delay
+          setTimeout(() => {
+            $('#qrScannerModal').modal('hide');
+            window.location.reload();
+          }, 1500);
+        },
+        error: function (xhr) {
+          let errorMessage = 'Failed to receive file. ';
+
+          if (xhr.status === 401) {
+            errorMessage = 'Please login first.';
+          } else if (xhr.status === 404) {
+            errorMessage = 'File not found.';
+          } else if (xhr.status === 403) {
+            errorMessage = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'You cannot receive this file.';
+          } else if (xhr.status === 400) {
+            errorMessage = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Invalid request.';
+          } else if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMessage = xhr.responseJSON.error;
+          } else if (xhr.responseJSON && xhr.responseJSON.message) {
+            errorMessage = xhr.responseJSON.message;
+          } else {
+            errorMessage = 'Please try again.';
+          }
+
+          // Close scanner modal
+          $('#qrScannerModal').modal('hide');
+
+          // Show error in SweetAlert for better formatting
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'error',
+              title: 'File Transfer Failed',
+              html: errorMessage.replace(/\n/g, '<br>'),
+              confirmButtonColor: '#696cff',
+              confirmButtonText: 'OK, Got it!'
+            });
+          } else {
+            // Fallback
+            $('#scanning-status').html('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMessage + '</span>').show();
+            setTimeout(() => {
+              $('#qrScannerModal').modal('hide');
+            }, 5000);
+          }
+        }
       });
-    } else {
-      // Fallback - use vanilla JS with Bootstrap
+    };
+
+    window.stopQrScanner = function () {
+      if (html5QrCode && isScanning) {
+        html5QrCode.stop().then(() => {
+          html5QrCode.clear();
+          html5QrCode = null;
+          isScanning = false;
+        }).catch((err) => {
+          console.error('Failed to stop scanner:', err);
+          html5QrCode = null;
+          isScanning = false;
+        });
+      }
+
+      // Clear scanner element - use vanilla JS to avoid jQuery dependency
+      const readerEl = document.getElementById('qr-reader');
       const resultsEl = document.getElementById('qr-reader-results');
       const statusEl = document.getElementById('scanning-status');
+
+      if (readerEl) readerEl.innerHTML = '';
       if (resultsEl) resultsEl.innerHTML = '';
       if (statusEl) {
         statusEl.innerHTML = '';
         statusEl.style.display = 'none';
       }
-      
-      const modalEl = document.getElementById('qrScannerModal');
-      if (modalEl && typeof bootstrap !== 'undefined') {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-        modalEl.addEventListener('shown.bs.modal', function() {
-          startQrScanner();
-        }, { once: true });
-      }
-    }
-  }, 300);
-};
+    };
 
-window.startQrScanner = async function(cameraIdToUse = null, facingModeToUse = null) {
-  if (isScanning && !cameraIdToUse && !facingModeToUse) {
-    return;
-  }
-  
-  const readerElementId = "qr-reader";
-  
-  // If switching cameras, stop current scanner first
-  if (isScanning && html5QrCode) {
-    try {
-      await html5QrCode.stop();
-      html5QrCode.clear();
-    } catch (e) {
-      console.warn('Error stopping scanner:', e);
-    }
-    isScanning = false;
-  }
-  
-  // Clear previous content
-  const readerEl = document.getElementById(readerElementId);
-  if (!readerEl) return;
-  readerEl.innerHTML = '';
-  
-  if (typeof Html5Qrcode === 'undefined') {
-    updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
-    return;
-  }
-  
-  html5QrCode = new Html5Qrcode(readerElementId);
-  
-  // Request camera permission first using getUserMedia
-  updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Requesting camera access...');
-  
-  try {
-    // Request permission by attempting to access camera
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    // Stop the stream immediately - we just needed permission
-    stream.getTracks().forEach(track => track.stop());
-    console.log('Camera permission granted');
-  } catch (permissionErr) {
-    console.error('Camera permission error:', permissionErr);
-    let permissionMsg = 'Camera access denied. ';
-    
-    if (permissionErr.name === 'NotAllowedError' || permissionErr.name === 'PermissionDeniedError') {
-      permissionMsg += 'Please click the camera icon in your browser\'s address bar and allow camera access, then try again.';
-    } else if (permissionErr.name === 'NotFoundError') {
-      permissionMsg += 'No camera found. Please check if a camera is connected to your device.';
-    } else if (permissionErr.name === 'NotReadableError' || permissionErr.name === 'TrackStartError') {
-      permissionMsg += 'Camera is being used by another application. Please close other apps using the camera and try again.';
-    } else {
-      permissionMsg += 'Please check your browser settings and allow camera access.';
-    }
-    
-    updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + permissionMsg + '</span>');
-    isScanning = false;
-    return;
-  }
-  
-  // Get available cameras if not already loaded
-  if (availableCameras.length === 0) {
-    updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Detecting cameras...');
-    try {
-      availableCameras = await Html5Qrcode.getCameras();
-      console.log('Available cameras:', availableCameras.map(d => d.label));
-      
-      if (availableCameras.length === 0) {
-        updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> No cameras detected. Please ensure a camera is connected and try again.</span>');
-        isScanning = false;
-        return;
-      }
-      
-      // Show switch button if more than one camera
-      const switchBtn = document.getElementById('switch-camera-btn');
-      if (switchBtn && availableCameras.length > 1) {
-        switchBtn.style.display = 'inline-block';
-      }
-    } catch (err) {
-      console.error('Could not enumerate cameras:', err);
-      updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> Failed to detect cameras. Please check camera connection and browser permissions.</span>');
-      availableCameras = [];
-      isScanning = false;
-      return;
-    }
-  }
-  
-  // Determine which camera to use
-  let useCameraId = cameraIdToUse;
-  let useFacingMode = facingModeToUse;
-  
-  if (!useCameraId && !useFacingMode) {
-    // First time starting - determine initial camera
-    if (availableCameras.length > 0) {
-      // Try to find front camera first
-      const frontCamera = availableCameras.find(device => 
-        device.label.toLowerCase().includes('front') || 
-        device.label.toLowerCase().includes('facing: user') ||
-        device.label.toLowerCase().includes('integrated')
-      );
-      
-      useCameraId = frontCamera ? frontCamera.id : availableCameras[0].id;
-      currentCameraIndex = frontCamera ? availableCameras.indexOf(frontCamera) : 0;
-      currentCameraId = useCameraId;
-      currentFacingMode = null;
-    } else {
-      // No cameras enumerated, use facingMode
-      useFacingMode = currentFacingMode || 'user';
-      currentCameraId = null;
-    }
-  } else {
-    // Switching cameras
-    if (useCameraId) {
-      currentCameraId = useCameraId;
-      currentFacingMode = null;
-      currentCameraIndex = availableCameras.findIndex(cam => cam.id === useCameraId);
-    } else if (useFacingMode) {
-      currentFacingMode = useFacingMode;
-      currentCameraId = null;
-    }
-  }
-  
-  // Configuration for scanning
-  const config = {
-    fps: 10,
-    qrbox: { width: 250, height: 250 },
-    aspectRatio: 1.0
-  };
-  
-  let startPromise = null;
-  
-  // Start the camera
-  updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Starting camera...');
-  
-  try {
-    if (useCameraId) {
-      console.log('Starting with camera deviceId:', useCameraId);
-      startPromise = html5QrCode.start(
-        { deviceId: { exact: useCameraId } },
-        config,
-        (decodedText, decodedResult) => {
-          handleScannedQrCode(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore scan errors - just continue scanning
-          // These are normal "no QR code found" messages
+    // Ensure jQuery is loaded and attach modal close handler
+    document.addEventListener('DOMContentLoaded', function () {
+      // Wait for jQuery to be available
+      function waitForJQuery(callback) {
+        if (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') {
+          callback(window.jQuery || window.$);
+        } else {
+          setTimeout(function () {
+            waitForJQuery(callback);
+          }, 100);
         }
-      );
-    } else if (useFacingMode) {
-      console.log('Starting with facingMode:', useFacingMode);
-      startPromise = html5QrCode.start(
-        { facingMode: useFacingMode },
-        config,
-        (decodedText, decodedResult) => {
-          handleScannedQrCode(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore scan errors - just continue scanning
-          // These are normal "no QR code found" messages
-        }
-      );
-    } else {
-      throw new Error('No camera selected');
-    }
-    
-    await startPromise;
-    isScanning = true;
-    const selectedCamera = availableCameras.find(c => c.id === useCameraId);
-    const cameraLabel = selectedCamera
-      ? selectedCamera.label
-      : (useFacingMode === 'user' ? 'Front Camera' : 'Back Camera');
-    updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> Camera started (' + cameraLabel + '). Point at QR code to scan.</span>');
-  } catch (err) {
-    console.error('Failed to start scanner:', err);
-    let errorMsg = 'Failed to start camera. ';
-    
-    const errMsg = err && err.message ? err.message : String(err);
-    const errName = err && err.name ? err.name : '';
-    
-    if (errName === 'NotAllowedError' || errMsg.includes('Permission denied') || errMsg.includes('NotAllowedError')) {
-      errorMsg += 'Camera permission denied. Please click the camera icon in your browser\'s address bar, allow camera access, then try again.';
-    } else if (errName === 'NotFoundError' || errMsg.includes('Requested device not found') || errMsg.includes('NotFoundError')) {
-      errorMsg += 'No camera found. Please check if a camera is connected and try again.';
-    } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source') || errMsg.includes('NotReadableError')) {
-      errorMsg += 'Camera is being used by another application. Please close other apps using the camera (Zoom, Teams, Skype, etc.) and try again.';
-    } else if (errMsg.includes('OverconstrainedError') || errMsg.includes('constraint')) {
-      errorMsg += 'Camera constraints not supported. Trying different camera settings...';
-      // Try with facingMode instead if deviceId failed
-      if (useCameraId && !useFacingMode) {
-        setTimeout(function() {
-          startQrScanner(null, 'environment');
-        }, 1000);
-        return;
       }
-    } else {
-      errorMsg += 'Error: ' + errMsg + '. Please check camera connection and browser permissions.';
-    }
-    
-    updateScanningStatus('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>');
-    isScanning = false;
-  }
-}
 
-// Switch between cameras
-window.switchCamera = async function() {
-  if (!html5QrCode || !isScanning) {
-    return;
-  }
-  
-  try {
-    if (availableCameras.length > 1) {
-      // Switch to next camera in list
-      currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
-      const nextCamera = availableCameras[currentCameraIndex];
-      
-      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Switching camera...');
-      await startQrScanner(nextCamera.id, null);
-    } else {
-      // Switch between front and back using facingMode
-      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Switching camera...');
-      await startQrScanner(null, currentFacingMode);
-    }
-  } catch (err) {
-    console.error('Failed to switch camera:', err);
-    updateScanningStatus('<span class="text-danger">Failed to switch camera. Please try again.</span>');
-  }
-};
-
-// Manual QR code image upload handler - commented out for now
-/*
-document.addEventListener('DOMContentLoaded', function() {
-  const uploadInput = document.getElementById('qr-image-upload');
-  if (uploadInput) {
-    uploadInput.addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      if (!file.type.startsWith('image/')) {
-        updateScanningStatus('<span class="text-danger">Please select an image file (PNG, JPG, etc.)</span>');
-        return;
-      }
-      
-      if (typeof Html5Qrcode === 'undefined') {
-        updateScanningStatus('<span class="text-danger">QR Scanner library not loaded. Please refresh the page.</span>');
-        return;
-      }
-      
-      if (isScanning && html5QrCode) {
-        stopQrScanner();
-      }
-      
-      const fileBasedInstance = new Html5Qrcode("qr-reader");
-      
-      updateScanningStatus('<i class="bx bx-loader-alt bx-spin me-1"></i> Scanning uploaded image...');
-      
-      fileBasedInstance.scanFile(file, true)
-        .then(decodedText => {
-          updateScanningStatus('<span class="text-success"><i class="bx bx-check-circle me-1"></i> QR Code detected! Processing...</span>');
-          fileBasedInstance.clear();
-          handleScannedQrCode(decodedText);
-          uploadInput.value = '';
-        })
-        .catch(err => {
-          console.error('Error scanning file:', err);
-          let errorMsg = 'Failed to read QR code from image. ';
-          if (err && err.message && err.message.includes('No QR code')) {
-            errorMsg += 'No QR code found in the image. Please ensure the image contains a valid QR code.';
-          } else {
-            errorMsg += 'Please try again with a clearer image.';
-          }
-          updateScanningStatus('<span class="text-danger">' + errorMsg + '</span>');
-          fileBasedInstance.clear();
-          uploadInput.value = '';
-        });
-    });
-  }
-});
-*/
-
-// Helper function to update scanning status (works with or without jQuery)
-window.updateScanningStatus = function(html, show = true) {
-  const statusElement = document.getElementById('scanning-status');
-  if (!statusElement) return;
-  
-  const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
-    ? (window.jQuery || window.$) 
-    : null;
-  
-  if ($) {
-    $(statusElement).html(html);
-    if (show) $(statusElement).show();
-  } else {
-    statusElement.innerHTML = html;
-    if (show) statusElement.style.display = 'block';
-    else statusElement.style.display = 'none';
-  }
-}
-
-window.handleScannedQrCode = function(decodedText) {
-  // Stop scanning immediately after successful scan
-  stopQrScanner();
-  
-  // Extract file ID from the scanned URL
-  // Expected format: http://localhost/fts/file-movements/scan/{fileId}
-  const urlPattern = /\/file-movements\/scan\/(\d+)/;
-  const match = decodedText.match(urlPattern);
-  
-  if (!match || !match[1]) {
-    const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
-      ? (window.jQuery || window.$) 
-      : null;
-    const statusEl = document.getElementById('scanning-status');
-    const modalEl = document.getElementById('qrScannerModal');
-    
-    if ($ && statusEl) {
-      $(statusEl).html('<span class="text-danger">Invalid QR code format. Please scan a valid file QR code.</span>').show();
-      setTimeout(() => {
-        $('#qrScannerModal').modal('hide');
-      }, 2000);
-    } else if (statusEl) {
-      statusEl.innerHTML = '<span class="text-danger">Invalid QR code format. Please scan a valid file QR code.</span>';
-      statusEl.style.display = 'block';
-      setTimeout(() => {
+      waitForJQuery(function ($) {
+        // Stop scanner when modal is closed (using Bootstrap event)
+        const modalEl = document.getElementById('qrScannerModal');
         if (modalEl) {
-          const modal = bootstrap.Modal.getInstance(modalEl);
-          if (modal) modal.hide();
+          // Remove any existing listeners and add new one
+          $(modalEl).off('hidden.bs.modal').on('hidden.bs.modal', function () {
+            stopQrScanner();
+          });
         }
-      }, 2000);
-    }
-    return;
-  }
-  
-  const fileId = match[1];
-  
-  // Show processing status
-  const $ = (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') 
-    ? (window.jQuery || window.$) 
-    : null;
-  const statusEl = document.getElementById('scanning-status');
-  
-  if ($ && statusEl) {
-    $(statusEl).html('<span class="text-info"><i class="bx bx-loader-alt bx-spin me-1"></i> Processing file transfer...</span>').show();
-  } else if (statusEl) {
-    statusEl.innerHTML = '<span class="text-info"><i class="bx bx-loader-alt bx-spin me-1"></i> Processing file transfer...</span>';
-    statusEl.style.display = 'block';
-  }
-  
-  // Make AJAX call to scan endpoint
-  // Use fetch API if jQuery not available, otherwise use jQuery
-  if (!$ || typeof $.ajax === 'undefined') {
-    // Use fetch API as fallback
-    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
-    const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
-    const scanUrl = "{{ url('/file-movements/scan') }}/" + fileId + (receiverNote ? "?file_note=" + encodeURIComponent(receiverNote) : "");
-    fetch(scanUrl, {
-      method: 'GET',
-      headers: {
-        'X-CSRF-TOKEN': csrfToken || '',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Accept': 'application/json'
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        return response.json().then(errData => {
-          throw new Error(errData.error || errData.message || 'Server error');
-        }).catch(() => {
-          throw new Error('HTTP error ' + response.status);
-        });
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log('QR Scan response:', data);
-      
-      if (data.success || data.message) {
-        const message = data.message || 'File received successfully!';
-        if (statusEl) {
-          statusEl.innerHTML = '<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + ' Redirecting...</span>';
-          statusEl.style.display = 'block';
-        }
-        setTimeout(() => {
-          const modalEl = document.getElementById('qrScannerModal');
-          if (modalEl) {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-          }
-          window.location.reload();
-        }, 1500);
-      } else if (data.error) {
-        throw new Error(data.error);
-      } else {
-        throw new Error('Unknown response format');
-      }
-    })
-    .catch(error => {
-      console.error('QR Scan error:', error);
-      const errorMsg = error.message || 'Failed to receive file. Please try again.';
-      
-      // Close scanner modal
-      const modalEl = document.getElementById('qrScannerModal');
-      if (modalEl) {
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-      }
-      
-      // Show error in SweetAlert for better formatting
-      if (typeof Swal !== 'undefined') {
-        Swal.fire({
-          icon: 'error',
-          title: 'File Transfer Failed',
-          html: errorMsg.replace(/\n/g, '<br>'),
-          confirmButtonColor: '#696cff',
-          confirmButtonText: 'OK, Got it!'
-        });
-      } else {
-        // Fallback to status display
-        if (statusEl) {
-          statusEl.innerHTML = '<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMsg + '</span>';
-          statusEl.style.display = 'block';
-        }
-        setTimeout(() => {
-          if (modalEl) {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-          }
-        }, 5000);
-      }
-    });
-    return;
-  }
-  
-  const scanUrl = "{{ url('/file-movements/scan') }}/" + fileId + (receiverNote ? "?file_note=" + encodeURIComponent(receiverNote) : "");
-  $.ajax({
-    url: scanUrl,
-    method: 'GET',
-    headers: {
-      'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-      'X-Requested-With': 'XMLHttpRequest',
-      'Accept': 'application/json'
-    },
-    success: function(response) {
-      // Success response
-      const message = response.message || 'File received successfully!';
-      $('#scanning-status').html('<span class="text-success"><i class="bx bx-check-circle me-1"></i> ' + message + ' Redirecting...</span>').show();
-      
-      // Close modal and reload page after short delay
-      setTimeout(() => {
-        $('#qrScannerModal').modal('hide');
-        window.location.reload();
-      }, 1500);
-    },
-    error: function(xhr) {
-      let errorMessage = 'Failed to receive file. ';
-      
-      if (xhr.status === 401) {
-        errorMessage = 'Please login first.';
-      } else if (xhr.status === 404) {
-        errorMessage = 'File not found.';
-      } else if (xhr.status === 403) {
-        errorMessage = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'You cannot receive this file.';
-      } else if (xhr.status === 400) {
-        errorMessage = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Invalid request.';
-      } else if (xhr.responseJSON && xhr.responseJSON.error) {
-        errorMessage = xhr.responseJSON.error;
-      } else if (xhr.responseJSON && xhr.responseJSON.message) {
-        errorMessage = xhr.responseJSON.message;
-      } else {
-        errorMessage = 'Please try again.';
-      }
-      
-      // Close scanner modal
-      $('#qrScannerModal').modal('hide');
-      
-      // Show error in SweetAlert for better formatting
-      if (typeof Swal !== 'undefined') {
-        Swal.fire({
-          icon: 'error',
-          title: 'File Transfer Failed',
-          html: errorMessage.replace(/\n/g, '<br>'),
-          confirmButtonColor: '#696cff',
-          confirmButtonText: 'OK, Got it!'
-        });
-      } else {
-        // Fallback
-        $('#scanning-status').html('<span class="text-danger"><i class="bx bx-error me-1"></i> ' + errorMessage + '</span>').show();
-        setTimeout(() => {
-          $('#qrScannerModal').modal('hide');
-        }, 5000);
-      }
-    }
-  });
-}
-
-window.stopQrScanner = function() {
-  if (html5QrCode && isScanning) {
-    html5QrCode.stop().then(() => {
-      html5QrCode.clear();
-      html5QrCode = null;
-      isScanning = false;
-    }).catch((err) => {
-      console.error('Failed to stop scanner:', err);
-      html5QrCode = null;
-      isScanning = false;
-    });
-  }
-  
-  // Clear scanner element - use vanilla JS to avoid jQuery dependency
-  const readerEl = document.getElementById('qr-reader');
-  const resultsEl = document.getElementById('qr-reader-results');
-  const statusEl = document.getElementById('scanning-status');
-  
-  if (readerEl) readerEl.innerHTML = '';
-  if (resultsEl) resultsEl.innerHTML = '';
-  if (statusEl) {
-    statusEl.innerHTML = '';
-    statusEl.style.display = 'none';
-  }
-}
-
-// Ensure jQuery is loaded and attach modal close handler
-document.addEventListener('DOMContentLoaded', function() {
-  // Wait for jQuery to be available
-  function waitForJQuery(callback) {
-    if (typeof window.jQuery !== 'undefined' || typeof window.$ !== 'undefined') {
-      callback(window.jQuery || window.$);
-    } else {
-      setTimeout(function() {
-        waitForJQuery(callback);
-      }, 100);
-    }
-  }
-  
-  waitForJQuery(function($) {
-    // Stop scanner when modal is closed (using Bootstrap event)
-    const modalEl = document.getElementById('qrScannerModal');
-    if (modalEl) {
-      // Remove any existing listeners and add new one
-      $(modalEl).off('hidden.bs.modal').on('hidden.bs.modal', function() {
-        stopQrScanner();
       });
-    }
-  });
-});
-
-function openViewModal(file) {
-  const BASE_URL = "{{ asset('public') }}/";
-
-  let html = `
-    <strong>File No:</strong> ${file.file_no}<br>
-    <strong>Subject:</strong> ${file.subject}<br>
-    <strong>PUC/Proposal:</strong> ${file.puc_proposal}<br>
-    <strong>Handover Note:</strong> ${file.handover_note ? file.handover_note : 'No note provided'}<br>
-    <strong>Status:</strong> ${file.status}<br>
-    <strong>Created By:</strong> ${file.creator ? file.creator.name : 'N/A'}<br><br>
-    
-    <strong>Image:</strong><br>
-      ${file.file_image ? `<img src="${BASE_URL}/${file.file_image}" alt="Image" class="img-fluid mb-3">` : 'No image uploaded'}<br>
-    
-    <strong>Attachment:</strong><br>
-    ${file.file_attachment ? `<a href="${BASE_URL}/${file.file_attachment}" target="_blank">Download Attachment</a>` : 'No attachment'}<br><br>
-    
-    <strong>File Movements:</strong><br>
-    <ul class="list-group">
-  `;
-
-  file.movements.forEach((move, index) => {
-    html += `
-      <li class="list-group-item">
-        <strong>Movement #${index + 1}</strong><br>
-        <strong>Sender ID:</strong> ${move.sender_id}<br>
-        <strong>Receiver:</strong> ${move.receiver ? move.receiver.name : 'N/A'} (${move.receiver && move.receiver.role ? move.receiver.role.name : 'N/A'})<br>
-        <strong>Note:</strong> ${move.file_note ?? 'N/A'}<br>
-        <strong>Rejected:</strong> ${move.file_reject ? 'Yes' : 'No'}<br>
-        <strong>Receive Date:</strong> ${move.receive_date}
-      </li>
-    `;
-  });
-
-  html += `</ul>`;
-
-  document.getElementById('file-content').innerHTML = html;
-  $('#viewModal').modal('show');
-}
-
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize tooltips for handover notes
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl);
     });
-    
-    // Handle file creation success with SweetAlert
-    @if(Session::has('file_created'))
-        Swal.fire({
-            title: 'File Created Successfully!',
-            text: 'Would you like to print the file with QR code?',
-            icon: 'success',
-            showCancelButton: true,
-            confirmButtonColor: '#696cff',
-            cancelButtonColor: '#8592a3',
-            confirmButtonText: '<i class="bx bx-printer me-1"></i> Yes, Print',
-            cancelButtonText: 'No, Thanks',
-            allowOutsideClick: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Open print page in new window
-                const fileId = {{ Session::get('file_created') }};
-                window.open('{{ url('/files') }}/' + fileId + '/print', '_blank');
-            }
-        });
-    @endif
 
-    {{-- Session toasts (duplicate/validation errors) shown by global toast in layout --}}
-});
-</script>
+    function openViewModal(file) {
+      const BASE_URL = "{{ asset('public') }}/";
+
+      let html = `
+                        <strong>File No:</strong> ${file.file_no}<br>
+                        <strong>Subject:</strong> ${file.subject}<br>
+                        <strong>PUC/Proposal:</strong> ${file.puc_proposal}<br>
+                        <strong>Handover Note:</strong> ${file.handover_note ? file.handover_note : 'No note provided'}<br>
+                        <strong>Status:</strong> ${file.status}<br>
+                        <strong>Created By:</strong> ${file.creator ? file.creator.name : 'N/A'}<br><br>
+
+                        <strong>Image:</strong><br>
+                          ${file.file_image ? `<img src="${BASE_URL}/${file.file_image}" alt="Image" class="img-fluid mb-3">` : 'No image uploaded'}<br>
+
+                        <strong>Attachment:</strong><br>
+                        ${file.file_attachment ? `<a href="${BASE_URL}/${file.file_attachment}" target="_blank">Download Attachment</a>` : 'No attachment'}<br><br>
+
+                        <strong>File Movements:</strong><br>
+                        <ul class="list-group">
+                      `;
+
+      file.movements.forEach((move, index) => {
+        html += `
+                          <li class="list-group-item">
+                            <strong>Movement #${index + 1}</strong><br>
+                            <strong>Sender ID:</strong> ${move.sender_id}<br>
+                            <strong>Receiver:</strong> ${move.receiver ? move.receiver.name : 'N/A'} (${move.receiver && move.receiver.role ? move.receiver.role.name : 'N/A'})<br>
+                            <strong>Note:</strong> ${move.file_note ?? 'N/A'}<br>
+                            <strong>Rejected:</strong> ${move.file_reject ? 'Yes' : 'No'}<br>
+                            <strong>Receive Date:</strong> ${move.receive_date}
+                          </li>
+                        `;
+      });
+
+      html += `</ul>`;
+
+      document.getElementById('file-content').innerHTML = html;
+      $('#viewModal').modal('show');
+    }
+
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // Initialize tooltips for handover notes
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+
+      // Handle file creation success with SweetAlert
+      @if(Session::has('file_created'))
+        Swal.fire({
+          title: 'File Created Successfully!',
+          text: 'Would you like to print the file with QR code?',
+          icon: 'success',
+          showCancelButton: true,
+          confirmButtonColor: '#696cff',
+          cancelButtonColor: '#8592a3',
+          confirmButtonText: '<i class="bx bx-printer me-1"></i> Yes, Print',
+          cancelButtonText: 'No, Thanks',
+          allowOutsideClick: false
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Open print page in new window
+            const fileId = {{ Session::get('file_created') }};
+            window.open('{{ url('/files') }}/' + fileId + '/print', '_blank');
+          }
+        });
+      @endif
+                  });
+  </script>
 @endsection

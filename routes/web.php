@@ -59,23 +59,23 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/logout', [App\Http\Controllers\Auth\AuthController::class, 'logout'])->name('logout');
-    
+
     Route::get('/', [Analytics::class, 'index'])->name('dashboard-analytics');
 
     // Profile Management
-    Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
-    Route::put('/profile', [App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'edit'])->middleware('permission:view_profile')->name('profile.edit');
+    Route::put('/profile', [App\Http\Controllers\ProfileController::class, 'update'])->middleware('permission:edit_profile')->name('profile.update');
 
     //Files Management
-    Route::get('/files', [FileController::class, 'index'])->name('files.index');
-    Route::get('/files/create', [FileController::class, 'create'])->name('files.create');
-    Route::post('/files', [FileController::class, 'store'])->name('files.store');
-    Route::get('/files/{id}', [FileController::class, 'show'])->name('files.show');
-    Route::get('/files/{id}/edit', [FileController::class, 'edit'])->name('files.edit');
-    Route::put('/files/{id}', [FileController::class, 'update'])->name('files.update');
-    Route::put('/file-statuses', [FileController::class, 'updateStatus'])->name('file-statuses.update');
-    Route::delete('/files/{id}', [FileController::class, 'destroy'])->name('files.destroy');
-    Route::get('/history', [FileController::class, 'file_history'])->name('files.history');
+    Route::get('/files', [FileController::class, 'index'])->middleware('permission:view_files')->name('files.index');
+    Route::get('/files/create', [FileController::class, 'create'])->middleware('permission:create_files')->name('files.create');
+    Route::post('/files', [FileController::class, 'store'])->middleware('permission:create_files')->name('files.store');
+    Route::get('/files/{id}', [FileController::class, 'show'])->middleware('permission:view_files')->name('files.show');
+    Route::get('/files/{id}/edit', [FileController::class, 'edit'])->middleware('permission:edit_files')->name('files.edit');
+    Route::put('/files/{id}', [FileController::class, 'update'])->middleware('permission:edit_files')->name('files.update');
+    Route::match(['put', 'post'], '/file-statuses', [FileController::class, 'updateStatus'])->middleware('permission:edit_file_statuses')->name('file-statuses.update');
+    Route::delete('/files/{id}', [FileController::class, 'destroy'])->middleware('permission:delete_files')->name('files.destroy');
+    Route::get('/history', [FileController::class, 'file_history'])->middleware('permission:view_files')->name('files.history');
 
     //File movement
     Route::get('/file-movements', [FileMovementController::class, 'index'])->name('file-movements.index');
@@ -87,12 +87,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/file-movements/{id}', [FileMovementController::class, 'destroy'])->name('file-movements.destroy');
     Route::get('/file-movements/scanner', [FileMovementController::class, 'scanner'])->name('file-movements.scanner');
     Route::get('/file-movements/scan/{fileId}', [FileMovementController::class, 'scan'])->name('file-movements.scan');
-    
+
     //QR Code Generation
-    Route::get('/files/{id}/qr-code', [FileController::class, 'generateQrCode'])->name('files.qr-code');
-    
+    Route::get('/files/{id}/qr-code', [FileController::class, 'generateQrCode'])->middleware('permission:view_files')->name('files.qr-code');
+
     //Print File with QR Code
-    Route::get('/files/{id}/print', [FileController::class, 'print'])->name('files.print');
+    Route::get('/files/{id}/print', [FileController::class, 'print'])->middleware('permission:view_files')->name('files.print');
 
 
     //Role
@@ -118,17 +118,16 @@ Route::middleware('auth')->group(function () {
 
 
     //user
-    Route::get('/users', [UserController::class, 'index'])->name('users.index');
-    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
-    Route::post('/users', [UserController::class, 'store'])->name('users.store');
-    Route::get('/users/{id}', [UserController::class, 'show'])->name('users.show');
-    Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit');
-    Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
-    Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::get('/users', [UserController::class, 'index'])->middleware('permission:view_users')->name('users.index');
+    Route::get('/users/create', [UserController::class, 'create'])->middleware('permission:create_users')->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->middleware('permission:create_users')->name('users.store');
+    Route::get('/users/{id}', [UserController::class, 'show'])->middleware('permission:view_users')->name('users.show');
+    Route::get('/users/{id}/edit', [UserController::class, 'edit'])->middleware('permission:edit_users')->name('users.edit');
+    Route::put('/users/{id}', [UserController::class, 'update'])->middleware('permission:edit_users')->name('users.update');
+    Route::delete('/users/{id}', [UserController::class, 'destroy'])->middleware('permission:delete_users')->name('users.destroy');
 
     // Error Logs (Admin only)
     Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
     Route::post('/logs/clear', [LogController::class, 'clear'])->name('logs.clear');
 
 });
-

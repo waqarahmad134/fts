@@ -3,7 +3,7 @@
   <div class="app-brand demo">
     <a href="{{url('/')}}" class="app-brand-link" style="margin:auto;">
       <span class="app-brand-logo demo">
-        @include('_partials.macros',["width"=>25,"withbg"=>'var(--bs-primary)'])
+        @include('_partials.macros', ["width" => 25, "withbg" => 'var(--bs-primary)'])
       </span>
     </a>
 
@@ -28,113 +28,141 @@
     <li class="menu-header small text-uppercase">
       <span class="menu-header-text">Apps & Pages</span>
     </li>
-    
+
 
     {{-- Users Menu --}}
-    @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
-    <li class="menu-item {{ request()->is('users*') ? 'active open' : '' }}">
+    @if(hasPermission('view_users'))
+      <li class="menu-item {{ request()->is('users*') ? 'active open' : '' }}">
         <a href="javascript:void(0);" class="menu-link menu-toggle">
-            <i class="menu-icon tf-icons bx bx-user"></i>
-            <div>Users</div>
+          <i class="menu-icon tf-icons bx bx-user"></i>
+          <div>Users</div>
         </a>
         <ul class="menu-sub">
+          @if(hasPermission('view_users'))
             <li class="menu-item {{ request()->is('users') ? 'active' : '' }}">
-                <a href="{{ url('users') }}" class="menu-link"><div>All Users</div></a>
+              <a href="{{ url('users') }}" class="menu-link">
+                <div>All Users</div>
+              </a>
             </li>
-            @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
+          @endif
+          @if(hasPermission('create_users'))
             <li class="menu-item {{ request()->is('users/create') ? 'active' : '' }}">
-                <a href="{{ url('users/create') }}" class="menu-link"><div>Create New User</div></a>
+              <a href="{{ url('users/create') }}" class="menu-link">
+                <div>Create New User</div>
+              </a>
             </li>
-            @endif
+          @endif
         </ul>
-    </li>
+      </li>
     @endif
 
 
     {{-- Files Menu --}}
-    <li class="menu-item {{ request()->is('files*') ? 'active open' : '' }}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-folder"></i>
-        <div>Files</div>
-      </a>
-      <ul class="menu-sub">
-        <li class="menu-item {{ request()->is('files') ? 'active' : '' }}">
-          <a href="{{ url('files') }}" class="menu-link"><div>All Files</div></a>
-        </li>
-        @if (auth()->user()->role->name == 'Junior Clerk' || auth()->user()->role->name == 'Assistant Registrar' || auth()->user()->role->name == 'Admin')
-        <li class="menu-item {{ request()->is('files/create') ? 'active' : '' }}">
-          <a href="{{ url('files/create') }}" class="menu-link"><div>Create New File</div></a>
-        </li>
-        @endif
-      </ul>
-    </li>
-    
+    @if(hasPermission('view_files'))
+      <li class="menu-item {{ request()->is('files*') ? 'active open' : '' }}">
+        <a href="javascript:void(0);" class="menu-link menu-toggle">
+          <i class="menu-icon tf-icons bx bx-folder"></i>
+          <div>Files</div>
+        </a>
+        <ul class="menu-sub">
+          @if(hasPermission('view_files'))
+            <li class="menu-item {{ request()->is('files') ? 'active' : '' }}">
+              <a href="{{ url('files') }}" class="menu-link">
+                <div>All Files</div>
+              </a>
+            </li>
+          @endif
+          @if(hasPermission('create_files'))
+            <li class="menu-item {{ request()->is('files/create') ? 'active' : '' }}">
+              <a href="{{ url('files/create') }}" class="menu-link">
+                <div>Create New File</div>
+              </a>
+            </li>
+          @endif
+        </ul>
+      </li>
+    @endif
+
 
     {{-- Files History --}}
-    <li class="menu-item {{ request()->is('history') ? 'active' : '' }}">
-      <a href="{{ route('files.history') }}" class="menu-link">
-        <i class="menu-icon tf-icons bx bx-history"></i>
-        <div>Files History (Closed)</div>
-      </a>
-    </li>
+    @if(hasPermission('view_files'))
+      <li class="menu-item {{ request()->is('history') ? 'active' : '' }}">
+        <a href="{{ route('files.history') }}" class="menu-link">
+          <i class="menu-icon tf-icons bx bx-history"></i>
+          <div>Files History (Closed)</div>
+        </a>
+      </li>
+    @endif
 
     {{-- Roles --}}
     @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
 
-    <li class="menu-item {{ request()->is('roles*') ? 'active open' : '' }}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-shield"></i>
-        <div>Roles</div>
-      </a>
-      <ul class="menu-sub">
-        <li class="menu-item {{ request()->is('roles') ? 'active' : '' }}">
-          <a href="{{ url('roles') }}" class="menu-link"><div>All Roles</div></a>
-        </li>
-        <li class="menu-item {{ request()->is('roles/create') ? 'active' : '' }}">
-          <a href="{{ url('roles/create') }}" class="menu-link"><div>Create New Role</div></a>
-        </li>
-      </ul>
-    </li>
+      <li class="menu-item {{ request()->is('roles*') ? 'active open' : '' }}">
+        <a href="javascript:void(0);" class="menu-link menu-toggle">
+          <i class="menu-icon tf-icons bx bx-shield"></i>
+          <div>Roles</div>
+        </a>
+        <ul class="menu-sub">
+          <li class="menu-item {{ request()->is('roles') ? 'active' : '' }}">
+            <a href="{{ url('roles') }}" class="menu-link">
+              <div>All Roles</div>
+            </a>
+          </li>
+          <li class="menu-item {{ request()->is('roles/create') ? 'active' : '' }}">
+            <a href="{{ url('roles/create') }}" class="menu-link">
+              <div>Create New Role</div>
+            </a>
+          </li>
+        </ul>
+      </li>
 
-    {{-- Wings (commented out)
-    <li class="menu-item {{ request()->is('wings*') ? 'active open' : '' }}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-building"></i>
-        <div>Wing</div>
-      </a>
-      <ul class="menu-sub">
-        <li class="menu-item {{ request()->is('wings') ? 'active' : '' }}">
-          <a href="{{ url('wings') }}" class="menu-link"><div>All Wings</div></a>
-        </li>
-        <li class="menu-item {{ request()->is('wings/create') ? 'active' : '' }}">
-          <a href="{{ url('wings/create') }}" class="menu-link"><div>Create New Wing</div></a>
-        </li>
-      </ul>
-    </li>
-    --}}
+      {{-- Wings (commented out)
+      <li class="menu-item {{ request()->is('wings*') ? 'active open' : '' }}">
+        <a href="javascript:void(0);" class="menu-link menu-toggle">
+          <i class="menu-icon tf-icons bx bx-building"></i>
+          <div>Wing</div>
+        </a>
+        <ul class="menu-sub">
+          <li class="menu-item {{ request()->is('wings') ? 'active' : '' }}">
+            <a href="{{ url('wings') }}" class="menu-link">
+              <div>All Wings</div>
+            </a>
+          </li>
+          <li class="menu-item {{ request()->is('wings/create') ? 'active' : '' }}">
+            <a href="{{ url('wings/create') }}" class="menu-link">
+              <div>Create New Wing</div>
+            </a>
+          </li>
+        </ul>
+      </li>
+      --}}
     @endif
 
     {{-- Error Logs (Admin Only) --}}
     @if(auth()->user()->role->name == 'admin' || auth()->user()->role->name == 'Admin')
-    <li class="menu-item {{ request()->is('logs*') ? 'active' : '' }}">
-      <a href="{{ url('logs') }}" class="menu-link">
-        <i class="menu-icon tf-icons bx bx-error-circle"></i>
-        <div>Error Logs</div>
-      </a>
-    </li>
+      <li class="menu-item {{ request()->is('logs*') ? 'active' : '' }}">
+        <a href="{{ url('logs') }}" class="menu-link">
+          <i class="menu-icon tf-icons bx bx-error-circle"></i>
+          <div>Error Logs</div>
+        </a>
+      </li>
     @endif
 
     {{-- Settings --}}
-    <li class="menu-item {{ request()->is('profile') ? 'active' : '' }}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons bx bx-cog"></i>
-        <div>Settings</div>
-      </a>
-      <ul class="menu-sub">
-        <li class="menu-item">
-          <a href="{{ url('profile') }}" class="menu-link"><div>Profile</div></a>
-        </li>
-      </ul>
-    </li>
+    @if(hasPermission('view_profile'))
+      <li class="menu-item {{ request()->is('profile') ? 'active' : '' }}">
+        <a href="javascript:void(0);" class="menu-link menu-toggle">
+          <i class="menu-icon tf-icons bx bx-cog"></i>
+          <div>Settings</div>
+        </a>
+        <ul class="menu-sub">
+          <li class="menu-item">
+            <a href="{{ url('profile') }}" class="menu-link">
+              <div>Profile</div>
+            </a>
+          </li>
+        </ul>
+      </li>
+    @endif
   </ul>
 </aside>

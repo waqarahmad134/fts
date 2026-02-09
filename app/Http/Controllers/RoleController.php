@@ -29,7 +29,7 @@ class RoleController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'         => 'required|unique:roles',
+            'name' => 'required|unique:roles',
             'insert_after' => 'nullable|exists:roles,id'
         ]);
 
@@ -38,8 +38,8 @@ class RoleController extends Controller
 
             // Get the next role after the selected one
             $nextRole = Role::where('level', '>', $afterRole->level)
-                            ->orderBy('level')
-                            ->first();
+                ->orderBy('level')
+                ->first();
 
             if ($nextRole) {
                 // Insert between afterRole and nextRole
@@ -54,7 +54,7 @@ class RoleController extends Controller
         }
 
         Role::create([
-            'name'  => $request->name,
+            'name' => $request->name,
             'level' => $newLevel,
         ]);
 
@@ -75,7 +75,7 @@ class RoleController extends Controller
         $role = Role::findOrFail($id);
 
         $request->validate([
-            'name'  => ['required', Rule::unique('roles')->ignore($role->id)],
+            'name' => ['required', Rule::unique('roles')->ignore($role->id)],
             'level' => [
                 'nullable',
                 'integer',
@@ -85,14 +85,14 @@ class RoleController extends Controller
         ]);
 
         $role->update([
-            'name'  => $request->name,
+            'name' => $request->name,
             // keep current level if none supplied
             'level' => $request->filled('level') ? $request->level : $role->level,
         ]);
 
         return redirect()
-               ->route('roles.index')
-               ->with('toast_success', 'Role updated successfully.');
+            ->route('roles.index')
+            ->with('toast_success', 'Role updated successfully.');
     }
 
     /* ---------------- Show & Delete ---------------- */
@@ -110,22 +110,65 @@ class RoleController extends Controller
 
     public function getPermissions(Role $role)
     {
-        $permissions = Permission::all(['id', 'name']);
+        $permissions = Permission::all(['id', 'name', 'description']);
         $assigned = $role->permissions->pluck('id')->toArray();
 
+        // Group permissions by module (Files, Users, Profile, File Status)
         $grouped = [];
 
+        // Define the order of modules
+        $moduleOrder = ['Files', 'Users', 'Profile', 'File Status'];
+
         foreach ($permissions as $perm) {
-            $parts = explode('_', $perm->name);
-            $groupKey = isset($parts[1]) ? $parts[1] : 'misc'; // use 2nd word as group
-            $grouped[$groupKey][] = [
+            // Determine module from permission name
+            if (str_contains($perm->name, '_files')) {
+                $module = 'Files';
+            } elseif (str_contains($perm->name, '_users')) {
+                $module = 'Users';
+            } elseif (str_contains($perm->name, '_profile')) {
+                $module = 'Profile';
+            } elseif (str_contains($perm->name, '_file_statuses')) {
+                $module = 'File Status';
+            } else {
+                continue; // Skip any other permissions
+            }
+
+            // Determine action order (Create, View, Edit, Delete)
+            $actionOrder = 0;
+            if (str_starts_with($perm->name, 'create_'))
+                $actionOrder = 1;
+            elseif (str_starts_with($perm->name, 'view_'))
+                $actionOrder = 2;
+            elseif (str_starts_with($perm->name, 'edit_'))
+                $actionOrder = 3;
+            elseif (str_starts_with($perm->name, 'delete_'))
+                $actionOrder = 4;
+
+            $grouped[$module][] = [
                 'id' => $perm->id,
-                'name' => $perm->name
+                'name' => $perm->name,
+                'description' => $perm->description ?? ucwords(str_replace('_', ' ', $perm->name)),
+                'order' => $actionOrder
             ];
         }
 
+        // Sort each module's permissions by action order
+        foreach ($grouped as $module => &$perms) {
+            usort($perms, function ($a, $b) {
+                return $a['order'] <=> $b['order'];
+            });
+        }
+
+        // Sort modules by defined order
+        $sortedGrouped = [];
+        foreach ($moduleOrder as $module) {
+            if (isset($grouped[$module])) {
+                $sortedGrouped[$module] = $grouped[$module];
+            }
+        }
+
         return response()->json([
-            'permissions' => $grouped,
+            'permissions' => $sortedGrouped,
             'assigned' => $assigned
         ]);
     }

@@ -11,9 +11,17 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password',
-        'role_id', 'designation', 'wing',
-        'supervisor_id', 'ip_address', 'latitude', 'longitude', 'device_token'
+        'name',
+        'email',
+        'password',
+        'role_id',
+        'designation',
+        'wing',
+        'supervisor_id',
+        'ip_address',
+        'latitude',
+        'longitude',
+        'device_token'
     ];
 
     protected $hidden = ['password'];
@@ -42,9 +50,40 @@ class User extends Authenticatable
     {
         return $this->hasMany(FileMovement::class, 'receiver_id');
     }
-    
+
     public function wing()
     {
         return $this->belongsTo(Wing::class);
+    }
+
+    /**
+     * Check if user has a specific permission
+     */
+    public function hasPermission($permissionName)
+    {
+        // Admin always has all permissions
+        if ($this->role && strtolower($this->role->name) === 'admin') {
+            return true;
+        }
+
+        // Check if user's role has the permission
+        return $this->role && $this->role->permissions()->where('name', $permissionName)->exists();
+    }
+
+    /**
+     * Check if user has any of the given permissions
+     */
+    public function hasAnyPermission($permissions)
+    {
+        // Admin always has all permissions
+        if ($this->role && strtolower($this->role->name) === 'admin') {
+            return true;
+        }
+
+        if (is_string($permissions)) {
+            $permissions = [$permissions];
+        }
+
+        return $this->role && $this->role->permissions()->whereIn('name', $permissions)->exists();
     }
 }

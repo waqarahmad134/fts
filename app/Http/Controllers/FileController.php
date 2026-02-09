@@ -72,32 +72,32 @@ class FileController extends Controller
         $currentUser = auth()->user();
         $currentRole = $currentUser->role;      // eager‑loaded relationship
         $currentLevel = $currentRole->level;
-    
+
         /* -----------------------------------------------------------------
          | 1. Build the list of “adjacent” roles                             |
          |    (one step up and one step down in the hierarchy)               |
          ------------------------------------------------------------------*/
         if (strtolower($currentRole->name) === 'admin') {
             // Admin sees everyone except other admins
-            $users = User::whereHas('role', fn ($q) => $q->where('name', '!=', 'admin'))
-                         ->with('role')
-                         ->get();
+            $users = User::whereHas('role', fn($q) => $q->where('name', '!=', 'admin'))
+                ->with('role')
+                ->get();
         } else {
             $prevRole = Role::where('level', '<', $currentLevel)
-                            ->orderByDesc('level')
-                            ->first();          // immediate lower role
-    
+                ->orderByDesc('level')
+                ->first();          // immediate lower role
+
             $nextRole = Role::where('level', '>', $currentLevel)
-                            ->orderBy('level')
-                            ->first();          // immediate higher role
-    
+                ->orderBy('level')
+                ->first();          // immediate higher role
+
             $allowedRoleIds = collect([$prevRole, $nextRole])
-                              ->filter()        // remove nulls
-                              ->pluck('id');
-    
+                ->filter()        // remove nulls
+                ->pluck('id');
+
             $users = User::whereIn('role_id', $allowedRoleIds)->with('role')->get();
         }
-    
+
         /* -----------------------------------------------------------------
          | 2. Fetch files:                                                   |
          |    • Created by current user                                      |
@@ -107,24 +107,24 @@ class FileController extends Controller
         $filesQuery = File::with(['creator', 'movements.receiver.role'])
             ->where(function ($q) use ($currentUser) {
                 $q->where('created_by', $currentUser->id)
-                  ->orWhereHas('movements', fn ($m) =>
+                    ->orWhereHas('movements', fn($m) =>
                         $m->where('receiver_id', $currentUser->id));
             });
-    
+
         if (strtolower($currentRole->name) === 'admin') {
             $filesQuery = File::with(['creator', 'movements.receiver.role']); // reset: full list
         }
-    
+
         $files = $filesQuery->orderByDesc('created_at')->paginate(10);
-    
+
         // Count pending files assigned to current user
         $pendingFilesForUser = \App\Models\FileMovement::where('receiver_id', $currentUser->id)
             ->where('file_reject', false)
-            ->whereHas('file', function($query) {
+            ->whereHas('file', function ($query) {
                 $query->where('status', '!=', 'closed');
             })
             ->count();
-    
+
         return view('files.index', compact('files', 'users', 'pendingFilesForUser'));
     }
 
@@ -233,16 +233,35 @@ class FileController extends Controller
     {
         $file = File::findOrFail($id);
         $currentUser = auth()->user();
-        
-        // Admin: always allowed. Creator: only if file has not been transferred to someone else.
+
+        // Admin: always allowed
         $isAdmin = strtolower($currentUser->role->name) === 'admin';
         $isCreator = $file->created_by === $currentUser->id;
-        $fileInProcess = $file->movements()->where('file_reject', false)->exists();
-        
-        if (!$isAdmin && !($isCreator && !$fileInProcess)) {
-            return redirect('/files')->with('toast_error', 'This file is in process. Only Admin can edit it.');
+
+        // Check if file is currently with the creator
+        // File is with creator if: no movements exist, OR the latest movement was a return (file_reject = true)
+        $latestMovement = $file->movements()->orderBy('created_at', 'desc')->first();
+
+        $fileIsWithCreator = false;
+        if (!$latestMovement) {
+            // No movements - file is still with creator
+            $fileIsWithCreator = true;
+        } elseif ($file->status === 'reopened') {
+            // File status is reopened - file was returned to creator
+            $fileIsWithCreator = true;
+        } elseif ($latestMovement->file_reject && (int) $latestMovement->receiver_id === (int) $currentUser->id) {
+            // File was returned to this user
+            $fileIsWithCreator = true;
+        } elseif ((int) $latestMovement->receiver_id === (int) $currentUser->id) {
+            // File is currently with this user
+            $fileIsWithCreator = true;
         }
-        
+
+        // Allow edit if: Admin, OR (Creator AND file is with them)
+        if (!$isAdmin && !($isCreator && $fileIsWithCreator)) {
+            return redirect('/files')->with('toast_error', 'This file is in process with another user. You can only edit when it returns to you.');
+        }
+
         return view('files.edit', compact('file'));
     }
 
@@ -250,16 +269,30 @@ class FileController extends Controller
     {
         $file = File::findOrFail($id);
         $currentUser = auth()->user();
-        
-        // Admin: always allowed. Creator: only if file has not been transferred.
+
+        // Admin: always allowed
         $isAdmin = strtolower($currentUser->role->name) === 'admin';
         $isCreator = $file->created_by === $currentUser->id;
-        $fileInProcess = $file->movements()->where('file_reject', false)->exists();
-        
-        if (!$isAdmin && !($isCreator && !$fileInProcess)) {
-            return redirect('/files')->with('toast_error', 'This file is in process. Only Admin can update it.');
+
+        // Check if file is currently with the creator
+        $latestMovement = $file->movements()->orderBy('created_at', 'desc')->first();
+
+        $fileIsWithCreator = false;
+        if (!$latestMovement) {
+            $fileIsWithCreator = true;
+        } elseif ($file->status === 'reopened') {
+            // File status is reopened - file was returned to creator
+            $fileIsWithCreator = true;
+        } elseif ($latestMovement->file_reject && (int) $latestMovement->receiver_id === (int) $currentUser->id) {
+            $fileIsWithCreator = true;
+        } elseif ((int) $latestMovement->receiver_id === (int) $currentUser->id) {
+            $fileIsWithCreator = true;
         }
-        
+
+        if (!$isAdmin && !($isCreator && $fileIsWithCreator)) {
+            return redirect('/files')->with('toast_error', 'This file is in process with another user. You can only update when it returns to you.');
+        }
+
         $request->validate([
             'file_no' => 'required|string|max:255|unique:files,file_no,' . $file->id,
             'subject' => 'required|string|max:255',
@@ -276,7 +309,7 @@ class FileController extends Controller
             if ($file->file_attachment && file_exists(public_path($file->file_attachment))) {
                 unlink(public_path($file->file_attachment));
             }
-            
+
             $attachment = $request->file('file_attachment');
             $fileName = time() . '_' . $attachment->getClientOriginalName();
             $attachment->move(public_path('uploads/attachments'), $fileName);
@@ -289,7 +322,7 @@ class FileController extends Controller
             if ($file->file_image && file_exists(public_path($file->file_image))) {
                 unlink(public_path($file->file_image));
             }
-            
+
             $image = $request->file('file_image');
             $imageName = time() . '_' . $image->getClientOriginalName();
             $image->move(public_path('uploads/images'), $imageName);
@@ -303,10 +336,47 @@ class FileController extends Controller
 
     public function updateStatus(Request $request)
     {
-        $file = File::findOrFail($request->file_id);
+        $request->validate([
+            'file_id' => 'required|exists:files,id',
+            'status' => 'required|in:pending,closed,reopened'
+        ]);
+
+        $file = File::with('movements')->findOrFail($request->file_id);
+        $currentUser = auth()->user();
+
+        // Check if user has permission to change file status
+        if (!$currentUser->hasPermission('edit_file_statuses')) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['error' => 'You do not have permission to change file status.'], 403);
+            }
+            return redirect()->back()->with('toast_error', 'You do not have permission to change file status.');
+        }
+
+        // Check if user is the current holder of the file
+        $currentHolder = $file->getCurrentHolder();
+
+        if ($currentHolder && $currentHolder->id !== $currentUser->id) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Only the current file holder can change the file status.'], 403);
+            }
+            return redirect()->back()->with('toast_error', 'Only the current file holder can change the file status.');
+        }
+
+        // Update status
         $file->status = $request->status;
         $file->save();
-        return redirect()->back()->with('toast_success', 'File status updated successfully');
+
+        $statusText = ucfirst($request->status);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "File status updated to {$statusText} successfully",
+                'status' => $request->status
+            ], 200);
+        }
+
+        return redirect()->back()->with('toast_success', "File status updated to {$statusText} successfully");
     }
 
     public function destroy($id)
@@ -314,16 +384,16 @@ class FileController extends Controller
         try {
             $file = File::findOrFail($id);
             $currentUser = auth()->user();
-            
+
             // Admin: always allowed. Creator: only if file has not been transferred.
             $isAdmin = strtolower($currentUser->role->name) === 'admin';
             $isCreator = $file->created_by === $currentUser->id;
             $fileInProcess = $file->movements()->where('file_reject', false)->exists();
-            
+
             if (!$isAdmin && !($isCreator && !$fileInProcess)) {
                 return redirect('/files')->with('toast_error', 'This file is in process. Only Admin can delete it.');
             }
-            
+
             // Delete associated files if they exist
             if ($file->file_attachment && file_exists(public_path($file->file_attachment))) {
                 unlink(public_path($file->file_attachment));
@@ -331,7 +401,7 @@ class FileController extends Controller
             if ($file->file_image && file_exists(public_path($file->file_image))) {
                 unlink(public_path($file->file_image));
             }
-            
+
             $file->delete();
             return redirect()->back()->with('toast_success', 'File deleted successfully');
         } catch (\Exception $e) {
@@ -355,37 +425,37 @@ class FileController extends Controller
             $scanUrl = url("/file-movements/scan/{$file->id}");
             $format = $request->get('format', 'svg'); // Default to SVG
             $download = $request->has('download') && $request->get('download') == '1'; // Default to inline display
-            
+
             // Size for download formats (higher quality)
             $size = $download ? 500 : 300;
-            
+
             // Use file_no for filename, fallback to id
             $fileIdentifier = !empty($file->file_no) ? $file->file_no : $file->id;
-            
+
             switch (strtolower($format)) {
                 case 'png':
                     // PNG requires imagick extension which isn't available
                     // Fall through to SVG - user will get SVG format
                     \Log::info('PNG format requested but imagick not available, using SVG instead');
-                    // Fall through to SVG
-                    
+                // Fall through to SVG
+
                 case 'jpg':
                 case 'jpeg':
                     // JPG also requires PNG first (which needs imagick)
                     // Fall through to SVG - user will get SVG format  
                     \Log::info('JPG format requested but imagick not available, using SVG instead');
-                    // Fall through to SVG
-                    
+                // Fall through to SVG
+
                 case 'svg':
                 default:
                     $qrCode = QrCode::size($size)
                         ->margin(2)
                         ->errorCorrection('H')
                         ->generate($scanUrl);
-                    
+
                     $fileName = 'qr-code-file-' . $fileIdentifier . '.svg';
                     $disposition = $download ? 'attachment' : 'inline';
-                    
+
                     return response($qrCode, 200)
                         ->header('Content-Type', 'image/svg+xml; charset=utf-8')
                         ->header('Cache-Control', 'public, max-age=3600')
@@ -396,7 +466,7 @@ class FileController extends Controller
         } catch (\Exception $e) {
             \Log::error('QR Code generation failed for file ID ' . $id . ': ' . $e->getMessage());
             \Log::error('QR Code generation stack trace: ' . $e->getTraceAsString());
-            
+
             // Return a simple error SVG instead of plain text
             $errorSvg = '<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="300" fill="#f8f9fa"/><text x="50%" y="50%" font-family="Arial" font-size="16" fill="#dc3545" text-anchor="middle" dy=".3em">Error: Failed to generate QR code</text></svg>';
             return response($errorSvg, 500)
@@ -419,18 +489,18 @@ class FileController extends Controller
     {
         $file = File::with(['creator', 'movements.receiver.role'])->findOrFail($id);
         $currentUser = auth()->user();
-        
+
         // Allow access if: Admin, or file creator, or has received the file
         $isCreator = $file->created_by === $currentUser->id;
         $isAdmin = strtolower($currentUser->role->name) === 'admin';
         $hasReceivedFile = $file->movements()
             ->where('receiver_id', $currentUser->id)
             ->exists();
-        
+
         if (!$isCreator && !$isAdmin && !$hasReceivedFile) {
             return redirect('/files')->with('toast_error', 'Unauthorized: You cannot print this file.');
         }
-        
+
         return view('files.print', compact('file'));
     }
 }

@@ -193,15 +193,29 @@ class FileController extends Controller
 
     public function store(Request $request)
     {
+        // Custom validation messages
+        $messages = [
+            'file_no.required' => 'File Number is required.',
+            'file_no.unique' => 'This File Number already exists! Please use a different number.',
+            'subject.required' => 'Subject is required.',
+            'puc_proposal.required' => 'PUC/Proposal is required.',
+        ];
 
-        $request->validate([
+        $validator = \Validator::make($request->all(), [
             'file_no' => 'required|string|max:255|unique:files,file_no',
             'subject' => 'required|string|max:255',
             'puc_proposal' => 'required|string',
             'handover_note' => 'nullable|string',
             'file_attachment' => 'nullable|file|mimes:pdf,doc,docx',
             'file_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg',
-        ]);
+        ], $messages);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('toast_error', $validator->errors()->first());
+        }
 
         $data = $request->except(['file_attachment', 'file_image']);
         $data['created_by'] = auth()->id(); // Automatically assign the creator
@@ -259,7 +273,7 @@ class FileController extends Controller
 
         // Allow edit if: Admin, OR (Creator AND file is with them)
         if (!$isAdmin && !($isCreator && $fileIsWithCreator)) {
-            return redirect('/files')->with('toast_error', 'This file is in process with another user. You can only edit when it returns to you.');
+            return redirect('/files')->with('toast_error', 'Access Denied! You can only edit this file when it is returned to you or if you are the creator.');
         }
 
         return view('files.edit', compact('file'));
@@ -290,7 +304,7 @@ class FileController extends Controller
         }
 
         if (!$isAdmin && !($isCreator && $fileIsWithCreator)) {
-            return redirect('/files')->with('toast_error', 'This file is in process with another user. You can only update when it returns to you.');
+            return redirect('/files')->with('toast_error', 'Access Denied! You can only edit this file when it is returned to you or if you are the creator.');
         }
 
         $request->validate([
